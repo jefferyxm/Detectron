@@ -253,14 +253,23 @@ def vis_one_image(
         kp_thresh=2, dpi=200, box_alpha=0.0, dataset=None, show_class=False,
         ext='pdf', out_when_no_box=False):
     """Visual debugging of detections."""
+    ''' and output detection result for icdar format'''
+
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
+
+    img_index = im_name.split('_')[2]
+    pt_dir = os.path.join(output_dir, '../pt/')
+    if not os.path.exists(pt_dir):
+        os.makedirs(pt_dir)
+    pt_file = open(pt_dir + 'res_img_' + img_index + '.txt', 'w')
 
     if isinstance(boxes, list):
         boxes, segms, keypoints, classes = convert_from_cls_format(
             boxes, segms, keypoints)
 
     if (boxes is None or boxes.shape[0] == 0 or max(boxes[:, 4]) < thresh) and not out_when_no_box:
+        pt_file.close()
         return
 
     dataset_keypoints, _ = keypoint_utils.get_keypoints()
@@ -326,7 +335,7 @@ def vis_one_image(
                 img[:, :, c] = color_mask[c]
             e = masks[:, :, i]
 
-            _, contour, hier = cv2.findContours(
+            contour, hier = cv2.findContours(
                 e.copy(), cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
 
             for c in contour:
@@ -336,6 +345,24 @@ def vis_one_image(
                     edgecolor='w', linewidth=1.2,
                     alpha=0.5)
                 ax.add_patch(polygon)
+                
+            for c in contour:
+                c = c.reshape((-1,2))
+                rotRect = cv2.minAreaRect(c)
+                minRect = np.int0(cv2.cv.BoxPoints(rotRect))
+                
+                px = minRect[:,0]
+                py = minRect[:,1]
+
+                line = str(px[0]) + ',' + str(py[0]) + ',' + str(px[1]) + ',' + str(py[1]) + ',' + \
+                        str(px[2]) + ',' + str(py[2]) + ',' + str(px[3]) + ',' + str(py[3]) + '\r\n'
+                
+                ax.add_patch(plt.Circle((px[0], py[0]), 1, edgecolor='r', fill=True, linewidth=1))
+                ax.add_patch(plt.Circle((px[1], py[1]), 1, edgecolor='r', fill=True, linewidth=1))
+                ax.add_patch(plt.Circle((px[2], py[2]), 1, edgecolor='r', fill=True, linewidth=1))
+                ax.add_patch(plt.Circle((px[3], py[3]), 1, edgecolor='r', fill=True, linewidth=1))
+
+                pt_file.write(line)
 
         # show keypoints
         if keypoints is not None and len(keypoints) > i:
@@ -386,6 +413,8 @@ def vis_one_image(
                 plt.setp(
                     line, color=colors[len(kp_lines) + 1], linewidth=1.0,
                     alpha=0.7)
+        
+    pt_file.close()
 
     output_name = os.path.basename(im_name) + '.' + ext
     fig.savefig(os.path.join(output_dir, '{}'.format(output_name)), dpi=dpi)
