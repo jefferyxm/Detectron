@@ -6,10 +6,10 @@ import pylab
 import matplotlib.pyplot as plt
 pylab.rcParams['figure.figsize'] = (8.0, 10.0)
 
-state = 'train'
+state = 'test'
 
 data_dir = './data/icdar/icdar15/'
-anno_file = data_dir + './anno_' + state + '_icdar15.json'
+anno_file = data_dir + 'annotations/anno_' + state + '_icdar15.json'
 
 coco = COCO(anno_file)
 
@@ -38,15 +38,15 @@ for i in imgIds:
     plt.imshow(I); plt.axis('off')
     annIds = coco.getAnnIds(imgIds=img['id'], catIds=catIds, iscrowd=None)
     anns = coco.loadAnns(annIds)
-    # try:
-    coco.showAnns(anns)
-    for ann in anns:
-        bbox = ann['bbox']
-        plt.gca().add_patch(plt.Rectangle((bbox[0], bbox[1]), bbox[2], bbox[3], edgecolor='r', fill=False, linewidth=2))
-    # plt.show()
-    # plt.savefig('/home/xiem/tmp/gt/val/gt_'+img['file_name'])
-    # plt.savefig('/home/xiem/tmp/gt2/train/gt_'+img['file_name'])
-    plt.show()
+    try:
+        coco.showAnns(anns)
+        for ann in anns:
+            bbox = ann['bbox']
+            plt.gca().add_patch(plt.Rectangle((bbox[0], bbox[1]), bbox[2], bbox[3], edgecolor='r', fill=False, linewidth=2))
+        # plt.show()
+        plt.savefig('/home/xiem/tmp/gt/val/gt_'+img['file_name'])
+        # plt.savefig('/home/xiem/tmp/gt2/train/gt_'+img['file_name'])
+        # plt.show()
 
-    # except:
-        # pass
+    except:
+        pass

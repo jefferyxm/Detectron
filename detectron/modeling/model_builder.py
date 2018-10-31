@@ -129,6 +129,7 @@ def get_func(func_name):
     function in this module or the path to a function relative to the base
     'modeling' module.
     """
+
     if func_name == '':
         return None
     new_func_name = name_compat.get_new_name(func_name)
@@ -147,6 +148,7 @@ def get_func(func_name):
         module_name = 'detectron.modeling.' + '.'.join(parts[:-1])
         module = importlib.import_module(module_name)
         return getattr(module, parts[-1])
+
     except Exception:
         logger.error('Failed to find function: {}'.format(func_name))
         raise

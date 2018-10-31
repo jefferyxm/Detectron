@@ -16,13 +16,13 @@ inno_dict_all = {
 
     'annotations':[],
 
-    'categories': [{"supercategory": "Text", "id": 1, "name": "text_block"}]
+    'categories': [{"supercategory": "Text", "id": 1, "name": "text_block"}, {"supercategory": "Text", "id": 2, "name": "confused"}]
 }
 
 dataset_dir = './data/icdar/icdar15/'
 
 index = 0
-state = 'train'
+state = 'test'
 if state =='train':
     instance_id = 100000
 elif state == 'test':
@@ -73,7 +73,8 @@ for _, _, files in os.walk(dataset_dir + state + '/'):
                 word = line.split(',')[-1]
                 
                 if word == '###\r\n':
-                    skip = 1
+                    # skip = 1
+                    anno_dict['category_id'] = 2  #confused words
 
                 str_points = line.split(',')[:8]
                 points = map(int, str_points)

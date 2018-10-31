@@ -50,7 +50,7 @@ c2_utils.import_detectron_ops()
 
 # OpenCL may be enabled by default in OpenCV3; disable it because it's not
 # thread safe and causes unwanted GPU memory allocations.
-cv2.ocl.setUseOpenCL(False)
+# cv2.ocl.setUseOpenCL(False)
 
 
 def parse_args():

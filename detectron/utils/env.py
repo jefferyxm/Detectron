@@ -41,7 +41,7 @@ def set_up_matplotlib():
     """Set matplotlib up."""
     import matplotlib
     # Use a non-interactive backend
-    matplotlib.use('Agg')
+    # matplotlib.use('Agg')
 
 
 def exit_on_error():

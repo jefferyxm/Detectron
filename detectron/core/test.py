@@ -46,6 +46,8 @@ import detectron.utils.boxes as box_utils
 import detectron.utils.image as image_utils
 import detectron.utils.keypoints as keypoint_utils
 
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -59,6 +61,9 @@ def im_detect_all(model, im, box_proposals, timers=None):
         return cls_boxes, None, None
 
     timers['im_detect_bbox'].tic()
+
+    # np.set_printoptions(threshold='nan')
+
     if cfg.TEST.BBOX_AUG.ENABLED:
         scores, boxes, im_scale = im_detect_bbox_aug(model, im, box_proposals)
     else:
@@ -67,6 +72,20 @@ def im_detect_all(model, im, box_proposals, timers=None):
         )
     timers['im_detect_bbox'].toc()
 
+    # import matplotlib.pyplot as plt
+    # im_plt = im[:,:,(2,1,0)]
+    # plt.cla()
+    # plt.imshow(im_plt)
+    # for i in range(boxes.shape[0]):
+    #     # plt.gca().add_patch(plt.Rectangle((boxes[i][4], boxes[i][5] ), \
+    #     #                 boxes[i][6] - boxes[i][4], boxes[i][7] - boxes[i][5], \
+    #     #                 fill=False, edgecolor='r', linewidth=1))
+    #     plt.gca().add_patch(plt.Circle((boxes[i][4], boxes[i][5]), 1, edgecolor='b', fill=True, linewidth=1))
+    #     plt.gca().add_patch(plt.Circle((boxes[i][6], boxes[i][7]), 1, edgecolor='r', fill=True, linewidth=1))
+    # plt.show()
+    # print('======')
+
+
     # score and boxes are from the whole image after score thresholding and nms
     # (they are not separated by class)
     # cls_boxes boxes and scores are separated by class and in the format used
@@ -74,6 +93,20 @@ def im_detect_all(model, im, box_proposals, timers=None):
     timers['misc_bbox'].tic()
     scores, boxes, cls_boxes = box_results_with_nms_and_limit(scores, boxes)
     timers['misc_bbox'].toc()
+
+
+    # import matplotlib.pyplot as plt
+    # im_plt = im[:,:,(2,1,0)]
+    # plt.cla()
+    # plt.imshow(im_plt)
+    # for i in range(boxes.shape[0]):
+    #     plt.gca().add_patch(plt.Rectangle((boxes[i][0], boxes[i][1] ), \
+    #                     boxes[i][2] - boxes[i][0], boxes[i][3] - boxes[i][1], \
+    #                     fill=False, edgecolor='r', linewidth=1))
+    # plt.show()
+    # print('======')
+
+
 
     if cfg.MODEL.MASK_ON and boxes.shape[0] > 0:
         timers['im_detect_mask'].tic()

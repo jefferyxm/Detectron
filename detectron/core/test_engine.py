@@ -300,7 +300,8 @@ def test_net(
                 thresh=cfg.VIS_TH,
                 box_alpha=0.8,
                 dataset=dataset,
-                show_class=True
+                show_class=True,
+                gen_res_file=True
             )
 
     cfg_yaml = yaml.dump(cfg)
