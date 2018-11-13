@@ -136,7 +136,7 @@ def main(args):
         t = time.time()
         with c2_utils.NamedCudaScope(0):
             cls_boxes, cls_segms, cls_keyps = infer_engine.im_detect_all(
-                model, im, None, timers=timers
+                model, im, None, timers=timers, im_path=im_name
             )
         logger.info('Inference time: {:.3f}s'.format(time.time() - t))
         for k, v in timers.items():

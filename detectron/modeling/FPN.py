@@ -349,10 +349,16 @@ def add_fpn_rpn_outputs(model, blobs_in, dim_in, spatial_scales):
                 weight_init=gauss_fill(0.01),
                 bias_init=const_fill(0.0)
             )
-            model.Relu(conv_rpn_fpn, conv_rpn_fpn)
+
+            # add inception module
+            inception_out = add_inception(model, conv_rpn_fpn, dim_in, slvl)
+            model.Relu(inception_out, inception_out)
+
+            # model.Relu(conv_rpn_fpn, conv_rpn_fpn)
+
             # Proposal classification scores
             rpn_cls_logits_fpn = model.Conv(
-                conv_rpn_fpn,
+                inception_out,  # conv_rpn_fpn,
                 'rpn_cls_logits_fpn' + slvl,
                 dim_in,
                 num_anchors,
@@ -364,7 +370,7 @@ def add_fpn_rpn_outputs(model, blobs_in, dim_in, spatial_scales):
             )
             # Proposal bbox regression deltas
             rpn_bbox_pred_fpn = model.Conv(
-                conv_rpn_fpn,
+                inception_out,  # conv_rpn_fpn,
                 'rpn_bbox_pred_fpn' + slvl,
                 dim_in,
                 4 * num_anchors,
@@ -378,7 +384,7 @@ def add_fpn_rpn_outputs(model, blobs_in, dim_in, spatial_scales):
             # Share weights and biases
             sk_min = str(k_min)
             # RPN hidden representation
-            conv_rpn_fpn = model.ConvShared(
+            conv_rpn_fpn = model.ConvShared(    
                 bl_in,
                 'conv_rpn_fpn' + slvl,
                 dim_in,
@@ -389,10 +395,15 @@ def add_fpn_rpn_outputs(model, blobs_in, dim_in, spatial_scales):
                 weight='conv_rpn_fpn' + sk_min + '_w',
                 bias='conv_rpn_fpn' + sk_min + '_b'
             )
-            model.Relu(conv_rpn_fpn, conv_rpn_fpn)
+
+            # copy weights from inception module added before
+            inception_out = add_inception_share(model, conv_rpn_fpn, dim_in, slvl, sk_min)
+            model.Relu(inception_out, inception_out)
+
+            # model.Relu(conv_rpn_fpn, conv_rpn_fpn)
             # Proposal classification scores
             rpn_cls_logits_fpn = model.ConvShared(
-                conv_rpn_fpn,
+                inception_out,  # conv_rpn_fpn,
                 'rpn_cls_logits_fpn' + slvl,
                 dim_in,
                 num_anchors,
@@ -404,7 +415,7 @@ def add_fpn_rpn_outputs(model, blobs_in, dim_in, spatial_scales):
             )
             # Proposal bbox regression deltas
             rpn_bbox_pred_fpn = model.ConvShared(
-                conv_rpn_fpn,
+                inception_out,  # conv_rpn_fpn,
                 'rpn_bbox_pred_fpn' + slvl,
                 dim_in,
                 4 * num_anchors,
@@ -435,6 +446,284 @@ def add_fpn_rpn_outputs(model, blobs_in, dim_in, spatial_scales):
                 anchors=lvl_anchors,
                 spatial_scale=sc
             )
+
+
+def add_inception(model, blob_in, dim_in, slvl):
+    """ add inception module """
+    dim_out = dim_in
+    conv_rpn_fpn_incept1_1 = model.Conv(
+        blob_in,
+        'conv_rpn_fpn_incept1_1' + slvl,
+        dim_in,
+        dim_out,
+        kernel=1,
+        pad=0,
+        stride=1,
+        weight_init=gauss_fill(0.01),
+        bias_init=const_fill(0.0)
+    )
+    conv_rpn_fpn_incept1_2 = model.Conv(
+        conv_rpn_fpn_incept1_1,
+        'conv_rpn_fpn_incept1_2' + slvl,
+        dim_in,
+        dim_out,
+        kernel=1,
+        pad=0,
+        stride=1,
+        weight_init=gauss_fill(0.01),
+        bias_init=const_fill(0.0)
+    )
+
+    conv_rpn_fpn_incept2_1 = model.Conv(
+        blob_in,
+        'conv_rpn_fpn_incept2_1' + slvl,
+        dim_in,
+        dim_out,
+        kernel=1,
+        pad=0,
+        stride=1,
+        weight_init=gauss_fill(0.01),
+        bias_init=const_fill(0.0)
+    )
+    conv_rpn_fpn_incept2_2 = model.Conv(
+        conv_rpn_fpn_incept2_1,
+        'conv_rpn_fpn_incept2_2' + slvl,
+        dim_in,
+        dim_out,
+        kernel=[1,3],
+        pad_h=0,
+        pad_w=1,
+        stride=1,
+        weight_init=gauss_fill(0.01),
+        bias_init=const_fill(0.0)
+    )
+    conv_rpn_fpn_incept2_3 = model.Conv(
+        conv_rpn_fpn_incept2_2,
+        'conv_rpn_fpn_incept2_3' + slvl,
+        dim_in,
+        dim_out,
+        kernel=[3,1],
+        pad_h=1,
+        pad_w=0,
+        stride=1,
+        weight_init=gauss_fill(0.01),
+        bias_init=const_fill(0.0)
+    )
+
+    conv_rpn_fpn_incept3_1 = model.Conv(
+        blob_in,
+        'conv_rpn_fpn_incept3_1' + slvl,
+        dim_in,
+        dim_out,
+        kernel=1,
+        pad=0,
+        stride=1,
+        weight_init=gauss_fill(0.01),
+        bias_init=const_fill(0.0)
+    )
+    conv_rpn_fpn_incept3_2 = model.Conv(
+        conv_rpn_fpn_incept3_1,
+        'conv_rpn_fpn_incept3_2' + slvl,
+        dim_in,
+        dim_out,
+        kernel=[1,5],
+        pad_h=0,
+        pad_w=2,
+        stride=1,
+        weight_init=gauss_fill(0.01),
+        bias_init=const_fill(0.0)
+    )
+    conv_rpn_fpn_incept3_3 = model.Conv(
+        conv_rpn_fpn_incept3_2,
+        'conv_rpn_fpn_incept3_3' + slvl,
+        dim_in,
+        dim_out,
+        kernel=[5,1],
+        pad_h=2,
+        pad_w=0,
+        stride=1,
+        weight_init=gauss_fill(0.01),
+        bias_init=const_fill(0.0)
+    )
+
+    c_blobs_in = [conv_rpn_fpn_incept1_2, conv_rpn_fpn_incept2_3, conv_rpn_fpn_incept3_3]
+    incept_concatation = model.Concat(
+        c_blobs_in,
+        'incept_concatation' + slvl
+    )
+
+    incept_concatation_affine = model.Conv(
+        incept_concatation,
+        'incept_concatation_affine' + slvl,
+        dim_in*3,
+        dim_out,
+        kernel=1,
+        pad=0,
+        stride=1,
+        weight_init=gauss_fill(0.01),
+        bias_init=const_fill(0.0)
+    )
+
+    incept_shortcut = model.Conv(
+        blob_in,
+        'incept_shortcut' + slvl,
+        dim_in,
+        dim_out,
+        kernel=1,
+        pad=0,
+        stride=1,
+        weight_init=gauss_fill(0.01),
+        bias_init=const_fill(0.0)
+    )
+
+    inception_out = model.Sum(
+        [incept_concatation_affine, incept_shortcut],
+        'inception_out' + slvl
+    )
+    return inception_out
+
+ 
+def add_inception_share(model, blob_in, dim_in, slvl, sk_min):
+    """ add inception share """
+    dim_out = dim_in
+    conv_rpn_fpn_incept1_1 = model.ConvShared(
+        blob_in,
+        'conv_rpn_fpn_incept1_1' + slvl,
+        dim_in,
+        dim_out,
+        kernel=1,
+        pad=0,
+        stride=1,
+        weight='conv_rpn_fpn_incept1_1' + sk_min + '_w',
+        bias='conv_rpn_fpn_incept1_1' + sk_min + '_b'
+    )
+    conv_rpn_fpn_incept1_2 = model.ConvShared(
+        conv_rpn_fpn_incept1_1,
+        'conv_rpn_fpn_incept1_2' + slvl,
+        dim_in,
+        dim_out,
+        kernel=1,
+        pad=0,
+        stride=1,
+        weight='conv_rpn_fpn_incept1_2' + sk_min + '_w',
+        bias='conv_rpn_fpn_incept1_2' + sk_min + '_b'
+    )
+
+    conv_rpn_fpn_incept2_1 = model.ConvShared(
+        blob_in,
+        'conv_rpn_fpn_incept2_1' + slvl,
+        dim_in,
+        dim_out,
+        kernel=1,
+        pad=0,
+        stride=1,
+        weight='conv_rpn_fpn_incept2_1' + sk_min + '_w',
+        bias='conv_rpn_fpn_incept2_1' + sk_min + '_b'
+    )
+    conv_rpn_fpn_incept2_2 = model.ConvShared(
+        conv_rpn_fpn_incept2_1,
+        'conv_rpn_fpn_incept2_2' + slvl,
+        dim_in,
+        dim_out,
+        kernel=None,
+        kernel_h=1,
+        kernel_w=3,
+        pad_h=0,
+        pad_w=1,
+        stride=1,
+        weight='conv_rpn_fpn_incept2_2' + sk_min + '_w',
+        bias='conv_rpn_fpn_incept2_2' + sk_min + '_b'
+    )
+    conv_rpn_fpn_incept2_3 = model.ConvShared(
+        conv_rpn_fpn_incept2_2,
+        'conv_rpn_fpn_incept2_3' + slvl,
+        dim_in,
+        dim_out,
+        kernel=None,
+        kernel_h=3,
+        kernel_w=1,
+        pad_h=1,
+        pad_w=0,
+        stride=1,
+        weight='conv_rpn_fpn_incept2_3' + sk_min + '_w',
+        bias='conv_rpn_fpn_incept2_3' + sk_min + '_b'
+    )
+
+    conv_rpn_fpn_incept3_1 = model.ConvShared(
+        blob_in,
+        'conv_rpn_fpn_incept3_1' + slvl,
+        dim_in,
+        dim_out,
+        kernel=1,
+        pad=0,
+        stride=1,
+        weight='conv_rpn_fpn_incept3_1' + sk_min + '_w',
+        bias='conv_rpn_fpn_incept3_1' + sk_min + '_b'
+    )
+    conv_rpn_fpn_incept3_2 = model.ConvShared(
+        conv_rpn_fpn_incept3_1,
+        'conv_rpn_fpn_incept3_2' + slvl,
+        dim_in,
+        dim_out,
+        kernel=None,
+        kernel_h=1,
+        kernel_w=5,
+        pad_h=0,
+        pad_w=2,
+        stride=1,
+        weight='conv_rpn_fpn_incept3_2' + sk_min + '_w',
+        bias='conv_rpn_fpn_incept3_2' + sk_min + '_b'
+    )
+    conv_rpn_fpn_incept3_3 = model.ConvShared(
+        conv_rpn_fpn_incept3_2,
+        'conv_rpn_fpn_incept3_3' + slvl,
+        dim_in,
+        dim_out,
+        kernel=None,
+        kernel_h=5,
+        kernel_w=1,
+        pad_h=2,
+        pad_w=0,
+        stride=1,
+        weight='conv_rpn_fpn_incept3_3' + sk_min + '_w',
+        bias='conv_rpn_fpn_incept3_3' + sk_min + '_b'
+    )
+
+    c_blobs_in = [conv_rpn_fpn_incept1_2, conv_rpn_fpn_incept2_3, conv_rpn_fpn_incept3_3]
+    incept_concatation = model.Concat(
+        c_blobs_in,
+        'incept_concatation' + slvl
+    )
+
+    incept_concatation_affine = model.ConvShared(
+        incept_concatation,
+        'incept_concatation_affine' + slvl,
+        dim_in*3,
+        dim_out,
+        kernel=1,
+        pad=0,
+        stride=1,
+        weight='incept_concatation_affine' + sk_min + '_w',
+        bias='incept_concatation_affine' + sk_min + '_b'
+    )
+
+    incept_shortcut = model.ConvShared(
+        blob_in,
+        'incept_shortcut' + slvl,
+        dim_in,
+        dim_out,
+        kernel=1,
+        pad=0,
+        stride=1,
+        weight='incept_shortcut' + sk_min + '_w',
+        bias='incept_shortcut' + sk_min + '_b'
+    )
+
+    inception_out = model.Sum(
+        [incept_concatation_affine, incept_shortcut],
+        'inception_out' + slvl
+    )
+    return inception_out
 
 
 def add_fpn_rpn_losses(model):
@@ -494,7 +783,7 @@ def map_rois_to_fpn_levels(rois, k_min, k_max):
     """Determine which FPN level each RoI in a set of RoIs should map to based
     on the heuristic in the FPN paper.
     """
-    # Compute level ids
+    # Compute level ids    
     s = np.sqrt(box_utils.boxes_area(rois))
     s0 = cfg.FPN.ROI_CANONICAL_SCALE  # default: 224
     lvl0 = cfg.FPN.ROI_CANONICAL_LEVEL  # default: 4

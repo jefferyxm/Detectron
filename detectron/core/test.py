@@ -26,7 +26,7 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-from __future__ import unicode_literals
+# from __future__ import unicode_literals
 
 from collections import defaultdict
 import cv2
@@ -51,7 +51,7 @@ import detectron.utils.keypoints as keypoint_utils
 logger = logging.getLogger(__name__)
 
 
-def im_detect_all(model, im, box_proposals, timers=None):
+def im_detect_all(model, im, box_proposals, timers=None, im_path=None):
     if timers is None:
         timers = defaultdict(Timer)
 
@@ -72,18 +72,53 @@ def im_detect_all(model, im, box_proposals, timers=None):
         )
     timers['im_detect_bbox'].toc()
 
-    # import matplotlib.pyplot as plt
-    # im_plt = im[:,:,(2,1,0)]
-    # plt.cla()
-    # plt.imshow(im_plt)
-    # for i in range(boxes.shape[0]):
-    #     # plt.gca().add_patch(plt.Rectangle((boxes[i][4], boxes[i][5] ), \
-    #     #                 boxes[i][6] - boxes[i][4], boxes[i][7] - boxes[i][5], \
-    #     #                 fill=False, edgecolor='r', linewidth=1))
-    #     plt.gca().add_patch(plt.Circle((boxes[i][4], boxes[i][5]), 1, edgecolor='b', fill=True, linewidth=1))
-    #     plt.gca().add_patch(plt.Circle((boxes[i][6], boxes[i][7]), 1, edgecolor='r', fill=True, linewidth=1))
-    # plt.show()
-    # print('======')
+    import matplotlib.pyplot as plt
+    im_plt = im[:,:,(2,1,0)]
+
+    print (boxes.shape)
+
+    j =1
+    inds = np.where(scores[:, j] > 0.05)[0]
+    scores_j = scores[inds, j]
+
+    boxes_j = boxes[inds, j * 4:(j + 1) * 4]
+
+    print(boxes_j.shape)
+
+    plt.cla()
+    plt.subplot(1,2,1)
+    plt.imshow(im_plt)
+    for i in range(boxes_j.shape[0]):
+        # plt.gca().add_patch(plt.Rectangle((boxes[i][4], boxes[i][5] ), \
+        #                 boxes[i][6] - boxes[i][4], boxes[i][7] - boxes[i][5], \
+        #                 fill=False, edgecolor='r', linewidth=1))
+        # plt.gca().add_patch(plt.Circle((boxes_j[i][4], boxes_j[i][5]), 1, edgecolor='b', fill=True, linewidth=2))
+        # plt.gca().add_patch(plt.Circle((boxes_j[i][6], boxes_j[i][7]), 1, edgecolor='r', fill=True, linewidth=2))
+        plt.gca().add_patch(plt.Circle((boxes_j[i][0], boxes_j[i][1]), 1, edgecolor='b', fill=True, linewidth=2))
+        plt.gca().add_patch(plt.Circle((boxes_j[i][2], boxes_j[i][3]), 1, edgecolor='r', fill=True, linewidth=2))
+
+
+    anno_name = 'anno/gt_' + (im_path.split('/')[-1]).split('.')[0] + '.txt'
+    anno_file = im_path.replace(im_path.split('/')[-1], anno_name)
+    print(anno_file)
+    gt_file = open(anno_file, 'r')
+    gt_lines = gt_file.readlines()
+    gt_file.close()
+    plt.subplot(1,2,2)
+    plt.imshow(im_plt)
+    for line in gt_lines:
+        if '\xef\xbb\xbf'  in line:
+            line = line.replace('\xef\xbb\xbf','') 
+        word = line.split(',')[-1]        
+        if word != '###\r\n':
+            print(word)
+            str_points = line.split(',')[:8]
+            points = map(int, str_points)
+            for i in range(4):
+                plt.gca().add_patch(plt.Circle((points[i*2], points[i*2 + 1]), 1, edgecolor='r', fill=True, linewidth=3))
+           
+    plt.show()
+    print('======')
 
 
     # score and boxes are from the whole image after score thresholding and nms
@@ -98,15 +133,34 @@ def im_detect_all(model, im, box_proposals, timers=None):
     # import matplotlib.pyplot as plt
     # im_plt = im[:,:,(2,1,0)]
     # plt.cla()
+    # plt.subplot(1,2,1)
     # plt.imshow(im_plt)
     # for i in range(boxes.shape[0]):
     #     plt.gca().add_patch(plt.Rectangle((boxes[i][0], boxes[i][1] ), \
     #                     boxes[i][2] - boxes[i][0], boxes[i][3] - boxes[i][1], \
     #                     fill=False, edgecolor='r', linewidth=1))
+    
+    # anno_name = 'anno/gt_' + (im_path.split('/')[-1]).split('.')[0] + '.txt'
+    # anno_file = im_path.replace(im_path.split('/')[-1], anno_name)
+    # print(anno_file)
+    # gt_file = open(anno_file, 'r')
+    # gt_lines = gt_file.readlines()
+    # gt_file.close()
+    # plt.subplot(1,2,2)
+    # plt.imshow(im_plt)
+    # for line in gt_lines:
+    #     if '\xef\xbb\xbf'  in line:
+    #         line = line.replace('\xef\xbb\xbf','') 
+    #     word = line.split(',')[-1]        
+    #     if word != '###\r\n':
+    #         print(word)
+    #         str_points = line.split(',')[:8]
+    #         points = map(int, str_points)
+    #         for i in range(4):
+    #             plt.gca().add_patch(plt.Circle((points[i*2], points[i*2 + 1]), 1, edgecolor='r', fill=True, linewidth=2))
+           
     # plt.show()
     # print('======')
-
-
 
     if cfg.MODEL.MASK_ON and boxes.shape[0] > 0:
         timers['im_detect_mask'].tic()
@@ -195,6 +249,54 @@ def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None):
         rois = workspace.FetchBlob(core.ScopedName('rois'))
         # unscale back to raw image space
         boxes = rois[:, 1:5] / im_scale
+
+
+    '''
+    roi_feat = workspace.FetchBlob(core.ScopedName('roi_feat'))
+    fc_w =  workspace.FetchBlob(core.ScopedName('fc6_w'))
+    fc_b =  workspace.FetchBlob(core.ScopedName('fc6_b'))
+
+    convsdir_w = [ 'conv1_w', 'res2_0_branch2a_w', 'res2_0_branch2b_w', 'res2_0_branch2c_w',
+                'res2_0_branch1_w', 'res2_1_branch2a_w', 'res2_1_branch2b_w', 'res2_1_branch2c_w',
+                'res2_2_branch2a_w', 'res2_2_branch2b_w', 'res2_2_branch2c_w', 'res3_0_branch2a_w',
+                'res3_0_branch2b_w', 'res3_0_branch2c_w', 'res3_0_branch1_w', 'res3_1_branch2a_w',
+                'res3_1_branch2b_w', 'res3_1_branch2c_w', 'res3_2_branch2a_w', 'res3_2_branch2b_w',
+                'res3_2_branch2c_w', 'res3_3_branch2a_w', 'res3_3_branch2b_w', 'res3_3_branch2c_w',
+                'res4_0_branch2a_w', 'res4_0_branch2b_w', 'res4_0_branch2c_w', 'res4_0_branch1_w',
+                'res4_1_branch2a_w', 'res4_1_branch2b_w', 'res4_1_branch2c_w', 'res4_2_branch2a_w',
+                'res4_2_branch2b_w', 'res4_2_branch2c_w', 'res4_3_branch2a_w', 'res4_3_branch2b_w',
+                'res4_3_branch2c_w', 'res4_4_branch2a_w', 'res4_4_branch2b_w', 'res4_4_branch2c_w',
+                'res4_5_branch2a_w', 'res4_5_branch2b_w', 'res4_5_branch2c_w', 'res5_0_branch2a_w',
+                'res5_0_branch2b_w', 'res5_0_branch2c_w', 'res5_0_branch1_w', 'res5_1_branch2a_w',
+                'res5_1_branch2b_w', 'res5_1_branch2c_w', 'res5_2_branch2a_w', 'res5_2_branch2b_w',
+                'res5_2_branch2c_w']
+    
+    conv_flat_w = []
+    for i in convsdir_w:
+        conv_w = workspace.FetchBlob(core.ScopedName(i))
+        print((conv_w.flatten()).shape)
+        conv_flat_w.extend(conv_w.flatten())
+    
+    convs_w = np.array(conv_flat_w)
+    print(convs_w)
+    print('*******')
+    print(convs_w.shape)
+
+    # print(model.net.Proto())
+
+    plot_param = convs_w
+    print(plot_param.shape)
+
+    import matplotlib.pyplot as plt
+    plt.subplot(2, 1, 1)
+    plt.plot(plot_param.flatten())
+
+    plt.subplot(2, 1, 2)
+    _ = plt.hist(plot_param.flatten(), bins=1000)
+
+    plt.show()
+    input()
+    '''
 
     # Softmax class probabilities
     scores = workspace.FetchBlob(core.ScopedName('cls_prob')).squeeze()
