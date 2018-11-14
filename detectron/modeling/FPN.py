@@ -35,7 +35,7 @@ import detectron.utils.boxes as box_utils
 # Lowest and highest pyramid levels in the backbone network. For FPN, we assume
 # that all networks have 5 spatial reductions, each by a factor of 2. Level 1
 # would correspond to the input image, hence it does not make sense to use it.
-LOWEST_BACKBONE_LVL = 2   # E.g., "conv2"-like level
+LOWEST_BACKBONE_LVL = 3   # E.g., "conv2"-like level
 HIGHEST_BACKBONE_LVL = 5  # E.g., "conv5"-like level
 
 
@@ -112,6 +112,9 @@ def add_fpn_onto_conv_body(
     else:
         # use all levels
         return blobs_fpn, dim_fpn, spatial_scales_fpn
+
+        # ignore the coarest level
+        # return blobs_fpn[1:], dim_fpn, spatial_scales_fpn[1:] 
 
 
 def add_fpn(model, fpn_level_info):
@@ -453,7 +456,7 @@ def add_inception(model, blob_in, dim_in, slvl):
     dim_out = dim_in
     conv_rpn_fpn_incept1_1 = model.Conv(
         blob_in,
-        'conv_rpn_fpn_incept1_1' + slvl,
+        'conv_rpn_fpn_incept1_1_' + slvl,
         dim_in,
         dim_out,
         kernel=1,
@@ -464,7 +467,7 @@ def add_inception(model, blob_in, dim_in, slvl):
     )
     conv_rpn_fpn_incept1_2 = model.Conv(
         conv_rpn_fpn_incept1_1,
-        'conv_rpn_fpn_incept1_2' + slvl,
+        'conv_rpn_fpn_incept1_2_' + slvl,
         dim_in,
         dim_out,
         kernel=1,
@@ -476,7 +479,7 @@ def add_inception(model, blob_in, dim_in, slvl):
 
     conv_rpn_fpn_incept2_1 = model.Conv(
         blob_in,
-        'conv_rpn_fpn_incept2_1' + slvl,
+        'conv_rpn_fpn_incept2_1_' + slvl,
         dim_in,
         dim_out,
         kernel=1,
@@ -487,24 +490,28 @@ def add_inception(model, blob_in, dim_in, slvl):
     )
     conv_rpn_fpn_incept2_2 = model.Conv(
         conv_rpn_fpn_incept2_1,
-        'conv_rpn_fpn_incept2_2' + slvl,
+        'conv_rpn_fpn_incept2_2_' + slvl,
         dim_in,
         dim_out,
         kernel=[1,3],
-        pad_h=0,
-        pad_w=1,
+        pad_t=0,
+        pad_b=0,
+        pad_l=1,
+        pad_r=1,
         stride=1,
         weight_init=gauss_fill(0.01),
         bias_init=const_fill(0.0)
     )
     conv_rpn_fpn_incept2_3 = model.Conv(
         conv_rpn_fpn_incept2_2,
-        'conv_rpn_fpn_incept2_3' + slvl,
+        'conv_rpn_fpn_incept2_3_' + slvl,
         dim_in,
         dim_out,
         kernel=[3,1],
-        pad_h=1,
-        pad_w=0,
+        pad_t=1,
+        pad_b=1,
+        pad_l=0,
+        pad_r=0,
         stride=1,
         weight_init=gauss_fill(0.01),
         bias_init=const_fill(0.0)
@@ -512,7 +519,7 @@ def add_inception(model, blob_in, dim_in, slvl):
 
     conv_rpn_fpn_incept3_1 = model.Conv(
         blob_in,
-        'conv_rpn_fpn_incept3_1' + slvl,
+        'conv_rpn_fpn_incept3_1_' + slvl,
         dim_in,
         dim_out,
         kernel=1,
@@ -523,38 +530,43 @@ def add_inception(model, blob_in, dim_in, slvl):
     )
     conv_rpn_fpn_incept3_2 = model.Conv(
         conv_rpn_fpn_incept3_1,
-        'conv_rpn_fpn_incept3_2' + slvl,
+        'conv_rpn_fpn_incept3_2_' + slvl,
         dim_in,
         dim_out,
         kernel=[1,5],
-        pad_h=0,
-        pad_w=2,
+        pad_t=0,
+        pad_b=0,
+        pad_l=2,
+        pad_r=2,
         stride=1,
         weight_init=gauss_fill(0.01),
         bias_init=const_fill(0.0)
     )
     conv_rpn_fpn_incept3_3 = model.Conv(
         conv_rpn_fpn_incept3_2,
-        'conv_rpn_fpn_incept3_3' + slvl,
+        'conv_rpn_fpn_incept3_3_' + slvl,
         dim_in,
         dim_out,
         kernel=[5,1],
-        pad_h=2,
-        pad_w=0,
+        pad_t=2,
+        pad_b=2,
+        pad_l=0,
+        pad_r=0,
         stride=1,
         weight_init=gauss_fill(0.01),
         bias_init=const_fill(0.0)
     )
 
     c_blobs_in = [conv_rpn_fpn_incept1_2, conv_rpn_fpn_incept2_3, conv_rpn_fpn_incept3_3]
+
     incept_concatation = model.Concat(
         c_blobs_in,
-        'incept_concatation' + slvl
+        'incept_concatation_' + slvl
     )
 
     incept_concatation_affine = model.Conv(
         incept_concatation,
-        'incept_concatation_affine' + slvl,
+        'incept_concatation_affine_' + slvl,
         dim_in*3,
         dim_out,
         kernel=1,
@@ -566,7 +578,7 @@ def add_inception(model, blob_in, dim_in, slvl):
 
     incept_shortcut = model.Conv(
         blob_in,
-        'incept_shortcut' + slvl,
+        'incept_shortcut_' + slvl,
         dim_in,
         dim_out,
         kernel=1,
@@ -578,7 +590,7 @@ def add_inception(model, blob_in, dim_in, slvl):
 
     inception_out = model.Sum(
         [incept_concatation_affine, incept_shortcut],
-        'inception_out' + slvl
+        'inception_out_' + slvl
     )
     return inception_out
 
@@ -588,140 +600,148 @@ def add_inception_share(model, blob_in, dim_in, slvl, sk_min):
     dim_out = dim_in
     conv_rpn_fpn_incept1_1 = model.ConvShared(
         blob_in,
-        'conv_rpn_fpn_incept1_1' + slvl,
+        'conv_rpn_fpn_incept1_1_' + slvl,
         dim_in,
         dim_out,
         kernel=1,
         pad=0,
         stride=1,
-        weight='conv_rpn_fpn_incept1_1' + sk_min + '_w',
-        bias='conv_rpn_fpn_incept1_1' + sk_min + '_b'
+        weight='conv_rpn_fpn_incept1_1_' + sk_min + '_w',
+        bias='conv_rpn_fpn_incept1_1_' + sk_min + '_b'
     )
     conv_rpn_fpn_incept1_2 = model.ConvShared(
         conv_rpn_fpn_incept1_1,
-        'conv_rpn_fpn_incept1_2' + slvl,
+        'conv_rpn_fpn_incept1_2_' + slvl,
         dim_in,
         dim_out,
         kernel=1,
         pad=0,
         stride=1,
-        weight='conv_rpn_fpn_incept1_2' + sk_min + '_w',
-        bias='conv_rpn_fpn_incept1_2' + sk_min + '_b'
+        weight='conv_rpn_fpn_incept1_2_' + sk_min + '_w',
+        bias='conv_rpn_fpn_incept1_2_' + sk_min + '_b'
     )
 
     conv_rpn_fpn_incept2_1 = model.ConvShared(
         blob_in,
-        'conv_rpn_fpn_incept2_1' + slvl,
+        'conv_rpn_fpn_incept2_1_1' + slvl,
         dim_in,
         dim_out,
         kernel=1,
         pad=0,
         stride=1,
-        weight='conv_rpn_fpn_incept2_1' + sk_min + '_w',
-        bias='conv_rpn_fpn_incept2_1' + sk_min + '_b'
+        weight='conv_rpn_fpn_incept2_1_' + sk_min + '_w',
+        bias='conv_rpn_fpn_incept2_1_' + sk_min + '_b'
     )
     conv_rpn_fpn_incept2_2 = model.ConvShared(
         conv_rpn_fpn_incept2_1,
-        'conv_rpn_fpn_incept2_2' + slvl,
+        'conv_rpn_fpn_incept2_2_' + slvl,
         dim_in,
         dim_out,
         kernel=None,
         kernel_h=1,
         kernel_w=3,
-        pad_h=0,
-        pad_w=1,
+        pad_t=0,
+        pad_b=0,
+        pad_l=1,
+        pad_r=1,
         stride=1,
-        weight='conv_rpn_fpn_incept2_2' + sk_min + '_w',
-        bias='conv_rpn_fpn_incept2_2' + sk_min + '_b'
+        weight='conv_rpn_fpn_incept2_2_' + sk_min + '_w',
+        bias='conv_rpn_fpn_incept2_2_' + sk_min + '_b'
     )
     conv_rpn_fpn_incept2_3 = model.ConvShared(
         conv_rpn_fpn_incept2_2,
-        'conv_rpn_fpn_incept2_3' + slvl,
+        'conv_rpn_fpn_incept2_3_' + slvl,
         dim_in,
         dim_out,
         kernel=None,
         kernel_h=3,
         kernel_w=1,
-        pad_h=1,
-        pad_w=0,
+        pad_t=1,
+        pad_b=1,
+        pad_l=0,
+        pad_r=0,
         stride=1,
-        weight='conv_rpn_fpn_incept2_3' + sk_min + '_w',
-        bias='conv_rpn_fpn_incept2_3' + sk_min + '_b'
+        weight='conv_rpn_fpn_incept2_3_' + sk_min + '_w',
+        bias='conv_rpn_fpn_incept2_3_' + sk_min + '_b'
     )
 
     conv_rpn_fpn_incept3_1 = model.ConvShared(
         blob_in,
-        'conv_rpn_fpn_incept3_1' + slvl,
+        'conv_rpn_fpn_incept3_1_' + slvl,
         dim_in,
         dim_out,
         kernel=1,
         pad=0,
         stride=1,
-        weight='conv_rpn_fpn_incept3_1' + sk_min + '_w',
-        bias='conv_rpn_fpn_incept3_1' + sk_min + '_b'
+        weight='conv_rpn_fpn_incept3_1_' + sk_min + '_w',
+        bias='conv_rpn_fpn_incept3_1_' + sk_min + '_b'
     )
     conv_rpn_fpn_incept3_2 = model.ConvShared(
         conv_rpn_fpn_incept3_1,
-        'conv_rpn_fpn_incept3_2' + slvl,
+        'conv_rpn_fpn_incept3_2_' + slvl,
         dim_in,
         dim_out,
         kernel=None,
         kernel_h=1,
         kernel_w=5,
-        pad_h=0,
-        pad_w=2,
+        pad_t=0,
+        pad_b=0,
+        pad_l=2,
+        pad_r=2,
         stride=1,
-        weight='conv_rpn_fpn_incept3_2' + sk_min + '_w',
-        bias='conv_rpn_fpn_incept3_2' + sk_min + '_b'
+        weight='conv_rpn_fpn_incept3_2_' + sk_min + '_w',
+        bias='conv_rpn_fpn_incept3_2_' + sk_min + '_b'
     )
     conv_rpn_fpn_incept3_3 = model.ConvShared(
         conv_rpn_fpn_incept3_2,
-        'conv_rpn_fpn_incept3_3' + slvl,
+        'conv_rpn_fpn_incept3_3_' + slvl,
         dim_in,
         dim_out,
         kernel=None,
         kernel_h=5,
         kernel_w=1,
-        pad_h=2,
-        pad_w=0,
+        pad_t=2,
+        pad_b=2,
+        pad_l=0,
+        pad_r=0,
         stride=1,
-        weight='conv_rpn_fpn_incept3_3' + sk_min + '_w',
-        bias='conv_rpn_fpn_incept3_3' + sk_min + '_b'
+        weight='conv_rpn_fpn_incept3_3_' + sk_min + '_w',
+        bias='conv_rpn_fpn_incept3_3_' + sk_min + '_b'
     )
 
     c_blobs_in = [conv_rpn_fpn_incept1_2, conv_rpn_fpn_incept2_3, conv_rpn_fpn_incept3_3]
     incept_concatation = model.Concat(
         c_blobs_in,
-        'incept_concatation' + slvl
+        'incept_concatation_' + slvl
     )
 
     incept_concatation_affine = model.ConvShared(
         incept_concatation,
-        'incept_concatation_affine' + slvl,
+        'incept_concatation_affine_' + slvl,
         dim_in*3,
         dim_out,
         kernel=1,
         pad=0,
         stride=1,
-        weight='incept_concatation_affine' + sk_min + '_w',
-        bias='incept_concatation_affine' + sk_min + '_b'
+        weight='incept_concatation_affine_' + sk_min + '_w',
+        bias='incept_concatation_affine_' + sk_min + '_b'
     )
 
     incept_shortcut = model.ConvShared(
         blob_in,
-        'incept_shortcut' + slvl,
+        'incept_shortcut_' + slvl,
         dim_in,
         dim_out,
         kernel=1,
         pad=0,
         stride=1,
-        weight='incept_shortcut' + sk_min + '_w',
-        bias='incept_shortcut' + sk_min + '_b'
+        weight='incept_shortcut_' + sk_min + '_w',
+        bias='incept_shortcut_' + sk_min + '_b'
     )
 
     inception_out = model.Sum(
         [incept_concatation_affine, incept_shortcut],
-        'inception_out' + slvl
+        'inception_out_' + slvl
     )
     return inception_out
 
@@ -834,10 +854,16 @@ FpnLevelInfo = collections.namedtuple(
 
 
 def fpn_level_info_ResNet50_conv5():
+    # return FpnLevelInfo(
+    #     blobs=('res5_2_sum', 'res4_5_sum', 'res3_3_sum', 'res2_2_sum'),
+    #     dims=(2048, 1024, 512, 256),
+    #     spatial_scales=(1. / 32., 1. / 16., 1. / 8., 1. / 4.)
+    # )
+
     return FpnLevelInfo(
-        blobs=('res5_2_sum', 'res4_5_sum', 'res3_3_sum', 'res2_2_sum'),
-        dims=(2048, 1024, 512, 256),
-        spatial_scales=(1. / 32., 1. / 16., 1. / 8., 1. / 4.)
+        blobs=('res5_2_sum', 'res4_5_sum', 'res3_3_sum'),
+        dims=(2048, 1024, 512),
+        spatial_scales=(1. / 32., 1. / 16. , 1. / 8.)
     )
 
 

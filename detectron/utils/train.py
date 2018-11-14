@@ -56,6 +56,9 @@ def train_model():
         # The final model was found in the output directory, so nothing to do
         return checkpoints
 
+    # print(model.net.Proto())
+    # input()
+
     setup_model_for_training(model, weights_file, output_dir)
     training_stats = TrainingStats(model)
     CHECKPOINT_PERIOD = int(cfg.TRAIN.SNAPSHOT_ITERS / cfg.NUM_GPUS)
