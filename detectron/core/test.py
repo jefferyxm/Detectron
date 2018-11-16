@@ -72,18 +72,18 @@ def im_detect_all(model, im, box_proposals, timers=None):
         )
     timers['im_detect_bbox'].toc()
 
-    # import matplotlib.pyplot as plt
-    # im_plt = im[:,:,(2,1,0)]
-    # plt.cla()
-    # plt.imshow(im_plt)
-    # for i in range(boxes.shape[0]):
-    #     # plt.gca().add_patch(plt.Rectangle((boxes[i][4], boxes[i][5] ), \
-    #     #                 boxes[i][6] - boxes[i][4], boxes[i][7] - boxes[i][5], \
-    #     #                 fill=False, edgecolor='r', linewidth=1))
-    #     plt.gca().add_patch(plt.Circle((boxes[i][4], boxes[i][5]), 1, edgecolor='b', fill=True, linewidth=1))
-    #     plt.gca().add_patch(plt.Circle((boxes[i][6], boxes[i][7]), 1, edgecolor='r', fill=True, linewidth=1))
-    # plt.show()
-    # print('======')
+    import matplotlib.pyplot as plt
+    im_plt = im[:,:,(2,1,0)]
+    plt.cla()
+    plt.imshow(im_plt)
+    for i in range(boxes.shape[0]):
+        # plt.gca().add_patch(plt.Rectangle((boxes[i][4], boxes[i][5] ), \
+        #                 boxes[i][6] - boxes[i][4], boxes[i][7] - boxes[i][5], \
+        #                 fill=False, edgecolor='r', linewidth=1))
+        plt.gca().add_patch(plt.Circle((boxes[i][4], boxes[i][5]), 1, edgecolor='b', fill=True, linewidth=1))
+        plt.gca().add_patch(plt.Circle((boxes[i][6], boxes[i][7]), 1, edgecolor='r', fill=True, linewidth=1))
+    plt.show()
+    print('======')
 
 
     # score and boxes are from the whole image after score thresholding and nms
@@ -195,6 +195,18 @@ def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None):
         rois = workspace.FetchBlob(core.ScopedName('rois'))
         # unscale back to raw image space
         boxes = rois[:, 1:5] / im_scale
+
+    rois1 = workspace.FetchBlob(core.ScopedName('rois_fpn2'))
+    rois2 = workspace.FetchBlob(core.ScopedName('rois_fpn3'))
+    rois3 = workspace.FetchBlob(core.ScopedName('rois_fpn4'))
+    rois4 = workspace.FetchBlob(core.ScopedName('rois_fpn5'))
+
+    print(rois1.shape)
+    print(rois2.shape)
+    print(rois3.shape)
+    print(rois4.shape)
+    
+    
 
     # Softmax class probabilities
     scores = workspace.FetchBlob(core.ScopedName('cls_prob')).squeeze()
