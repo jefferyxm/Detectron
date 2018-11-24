@@ -98,9 +98,40 @@ def add_rpn_blobs(blobs, im_scales, roidb):
             rpn_blobs = _get_rpn_blobs(
                 im_height, im_width, foas, all_anchors, gt_rois
             )
+
             for i, lvl in enumerate(range(k_min, k_max + 1)):
                 for k, v in rpn_blobs[i].items():
                     blobs[k + '_fpn' + str(lvl)].append(v)
+            
+            print('-----------------------------------------------')        
+            import matplotlib.pyplot as plt
+
+            for i in range(4):
+                plt.subplot(2,3,1)
+                plt.imshow(blobs['rpn_labels_int32_wide_fpn2'][0][0,i,0:200,0:280], cmap=plt.cm.hot  )
+                plt.subplot(2,3,2)
+                plt.imshow(blobs['rpn_labels_int32_wide_fpn3'][0][0,i,0:100,0:140],cmap=plt.cm.hot )
+                plt.subplot(2,3,3)
+                plt.imshow(blobs['rpn_labels_int32_wide_fpn4'][0][0,i,0:50,0:70],cmap=plt.cm.hot )
+                plt.subplot(2,3,4)
+                plt.imshow(blobs['rpn_labels_int32_wide_fpn5'][0][0,i,0:25,0:35],cmap=plt.cm.hot )
+                plt.subplot(2,3,5)
+                plt.imshow(
+                    [
+                        [-1,-1,-1],
+                        [0,0,0],
+                        [1,1,1],
+                    ],
+                    cmap=plt.cm.hot
+                )
+                # print(entry)
+                import cv2
+                im = cv2.imread(entry['image'])
+                im_plt = im[:,:,(2,1,0)]
+                plt.subplot(2,3,6)
+                plt.imshow(im_plt)
+                plt.show()
+
         else:
             # Classical RPN, applied to a single feature level
             rpn_blobs = _get_rpn_blobs(
@@ -230,7 +261,7 @@ def _get_rpn_blobs(im_height, im_width, foas, all_anchors, gt_boxes):
     bbox_outside_weights[labels == 0, :] = 1.0 / num_examples
 
     # Map up to original set of anchors
-    labels = data_utils.unmap(labels, total_anchors, inds_inside, fill=-1)
+    labels = data_utils.unmap(labels, total_anchors, inds_inside, fill=-1) 
     bbox_targets = data_utils.unmap(
         bbox_targets, total_anchors, inds_inside, fill=0
     )

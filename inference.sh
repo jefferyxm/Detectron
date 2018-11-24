@@ -5,4 +5,4 @@ python2 tools/infer_simple.py \
     --image-ext jpg \
     --output-ext jpg \
     --wts /home/xiem/icdar_tmp/detectron-output_01/train/icdar_2015_train/generalized_rcnn/model_final.pkl \
-    /home/xiem/3-deepLearning/3-scene_text_detection/dataset/ic15/train
+    /home/xiem/3-deepLearning/3-scene_text_detection/dataset/ic15/test

@@ -5,6 +5,8 @@ MODEL:
   FASTER_RCNN: True
   MASK_ON: True
 NUM_GPUS: 1
+DATA_LOADER:
+  NUM_THREADS: 1
 SOLVER:
   WEIGHT_DECAY: 0.0001
   LR_POLICY: steps_with_decay
@@ -30,7 +32,8 @@ MRCNN:
   DILATION: 1  # default 2
   CONV_INIT: MSRAFill  # default GaussianFill
 TRAIN:
-  WEIGHTS: https://s3-us-west-2.amazonaws.com/detectron/ImageNetPretrained/MSRA/R-50.pkl
+  # WEIGHTS: https://s3-us-west-2.amazonaws.com/detectron/ImageNetPretrained/MSRA/R-50.pkl
+  WEIGHTS: /home/xiem/med_tmp/R-50.pkl
   DATASETS: ('icdar_2015_train',)
   SCALES: (800,)
   MAX_SIZE: 1333

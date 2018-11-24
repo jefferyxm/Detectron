@@ -37,6 +37,7 @@ import re
 
 from caffe2.python import memonger
 from caffe2.python import workspace
+from caffe2.python import core
 
 from detectron.core.config import cfg
 from detectron.core.config import get_output_dir
