@@ -18,7 +18,7 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-from __future__ import unicode_literals
+# from __future__ import unicode_literals
 
 import logging
 import numpy as np
@@ -106,15 +106,15 @@ def add_rpn_blobs(blobs, im_scales, roidb):
             print('-----------------------------------------------')        
             import matplotlib.pyplot as plt
 
-            for i in range(4):
+            for i in range(3):
                 plt.subplot(2,3,1)
-                plt.imshow(blobs['rpn_labels_int32_wide_fpn2'][0][0,i,0:200,0:280], cmap=plt.cm.hot  )
+                plt.imshow(blobs['rpn_labels_int32_wide_fpn2'][0][0,i,0:int(im_height//4),0:int(im_width//4)], cmap=plt.cm.hot  )
                 plt.subplot(2,3,2)
-                plt.imshow(blobs['rpn_labels_int32_wide_fpn3'][0][0,i,0:100,0:140],cmap=plt.cm.hot )
+                plt.imshow(blobs['rpn_labels_int32_wide_fpn3'][0][0,i,0:int(im_height//8),0:int(im_width//8)],cmap=plt.cm.hot )
                 plt.subplot(2,3,3)
-                plt.imshow(blobs['rpn_labels_int32_wide_fpn4'][0][0,i,0:50,0:70],cmap=plt.cm.hot )
+                plt.imshow(blobs['rpn_labels_int32_wide_fpn4'][0][0,i,0:int(im_height//16),0:int(im_width//16)],cmap=plt.cm.hot )
                 plt.subplot(2,3,4)
-                plt.imshow(blobs['rpn_labels_int32_wide_fpn5'][0][0,i,0:25,0:35],cmap=plt.cm.hot )
+                plt.imshow(blobs['rpn_labels_int32_wide_fpn5'][0][0,i,0:int(im_height//32),0:int(im_width//32)],cmap=plt.cm.hot )
                 plt.subplot(2,3,5)
                 plt.imshow(
                     [
@@ -125,11 +125,38 @@ def add_rpn_blobs(blobs, im_scales, roidb):
                     cmap=plt.cm.hot
                 )
                 # print(entry)
+
+                im_path = entry['image']
                 import cv2
-                im = cv2.imread(entry['image'])
-                im_plt = im[:,:,(2,1,0)]
+                anno_name = 'anno/gt_' + (im_path.split('/')[-1]).split('.')[0] + '.txt'
+                anno_file = im_path.replace(im_path.split('/')[-1], anno_name)
+                print(anno_file)
+                gt_file = open(anno_file, 'r')
+                gt_lines = gt_file.readlines()
+                gt_file.close()
+
                 plt.subplot(2,3,6)
+                im = cv2.imread(im_path)
+                im_plt = im[:,:,(2,1,0)]
                 plt.imshow(im_plt)
+                for line in gt_lines:
+                    if '\xef\xbb\xbf'  in line:
+                        line = line.replace('\xef\xbb\xbf','') 
+                    word = line.split(',')[-1]        
+                    if word != '###\r\n':
+                        print(word)
+                        str_points = line.split(',')[:8]
+                        points = map(int, str_points)
+                        for i in range(4):
+                            plt.gca().add_patch(plt.Circle((points[i*2], points[i*2 + 1]), 1, edgecolor='r', fill=True, linewidth=2))
+
+
+
+                # import cv2
+                # im = cv2.imread(im_path)
+                # im_plt = im[:,:,(2,1,0)]
+                # plt.subplot(2,3,6)
+                # plt.imshow(im_plt)
                 plt.show()
 
         else:

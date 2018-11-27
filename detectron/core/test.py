@@ -144,24 +144,24 @@ def im_detect_all(model, im, box_proposals, timers=None, im_path=None):
                         boxes[i][2] - boxes[i][0], boxes[i][3] - boxes[i][1], \
                         fill=False, edgecolor='r', linewidth=1))
 
-    anno_name = 'anno/gt_' + (im_path.split('/')[-1]).split('.')[0] + '.txt'
-    anno_file = im_path.replace(im_path.split('/')[-1], anno_name)
-    print(anno_file)
-    gt_file = open(anno_file, 'r')
-    gt_lines = gt_file.readlines()
-    gt_file.close()
-    plt.subplot(2,3,6)
-    plt.imshow(im_plt)
-    for line in gt_lines:
-        if '\xef\xbb\xbf'  in line:
-            line = line.replace('\xef\xbb\xbf','') 
-        word = line.split(',')[-1]        
-        if word != '###\r\n':
-            print(word)
-            str_points = line.split(',')[:8]
-            points = map(int, str_points)
-            for i in range(4):
-                plt.gca().add_patch(plt.Circle((points[i*2], points[i*2 + 1]), 1, edgecolor='r', fill=True, linewidth=2))
+    # anno_name = 'anno/gt_' + (im_path.split('/')[-1]).split('.')[0] + '.txt'
+    # anno_file = im_path.replace(im_path.split('/')[-1], anno_name)
+    # print(anno_file)
+    # gt_file = open(anno_file, 'r')
+    # gt_lines = gt_file.readlines()
+    # gt_file.close()
+    # plt.subplot(2,3,6)
+    # plt.imshow(im_plt)
+    # for line in gt_lines:
+    #     if '\xef\xbb\xbf'  in line:
+    #         line = line.replace('\xef\xbb\xbf','') 
+    #     word = line.split(',')[-1]        
+    #     if word != '###\r\n':
+    #         print(word)
+    #         str_points = line.split(',')[:8]
+    #         points = map(int, str_points)
+    #         for i in range(4):
+    #             plt.gca().add_patch(plt.Circle((points[i*2], points[i*2 + 1]), 1, edgecolor='r', fill=True, linewidth=2))
            
 
     plt.show()

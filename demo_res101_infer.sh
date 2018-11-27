@@ -5,4 +5,3 @@ python tools/infer_simple.py \
     --image-ext jpg \
     --wts  ~/icdar_tmp/model_final.pkl \
     demo
-

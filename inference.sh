@@ -1,4 +1,4 @@
-export CUDA_VISIBLE_DEVICES=0
+export CUDA_VISIBLE_DEVICES=1
 python2 tools/infer_simple.py \
     --cfg configs/icdar/e2e_mask_rcnn_R-50-FPN_1x.yaml \
     --output-dir /home/xiem/tmp/detectron-visualizations \
