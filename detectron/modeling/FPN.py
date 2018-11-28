@@ -456,15 +456,25 @@ def add_fpn_rpn_losses(model):
                 ],
                 'rpn_bbox_' + key + '_fpn' + slvl
             )
-        loss_rpn_cls_fpn = model.net.SigmoidCrossEntropyLoss(
-            ['rpn_cls_logits_fpn' + slvl, 'rpn_labels_int32_fpn' + slvl],
+        # loss_rpn_cls_fpn = model.net.SigmoidCrossEntropyLoss(
+        #     ['rpn_cls_logits_fpn' + slvl, 'rpn_labels_int32_fpn' + slvl],
+        #     'loss_rpn_cls_fpn' + slvl,
+        #     normalize=0,
+        #     scale=(
+        #         model.GetLossScale() / cfg.TRAIN.RPN_BATCH_SIZE_PER_IM /
+        #         cfg.TRAIN.IMS_PER_BATCH
+        #     )
+        # )
+        loss_rpn_cls_fpn = model.net.SmoothL1Loss(
+            ['rpn_cls_logits_fpn' + slvl, 'rpn_labels_int32_fpn' + slvl,
+                'rpn_labels_int32_wide_inside_weights_fpn' + slvl,
+                'rpn_labels_int32_wide_outside_weights_fpn' + slvl],
             'loss_rpn_cls_fpn' + slvl,
-            normalize=0,
-            scale=(
-                model.GetLossScale() / cfg.TRAIN.RPN_BATCH_SIZE_PER_IM /
-                cfg.TRAIN.IMS_PER_BATCH
-            )
+            beta=1. / 9.,
+            scale=model.GetLossScale(),
         )
+
+
         # Normalization by (1) RPN_BATCH_SIZE_PER_IM and (2) IMS_PER_BATCH is
         # handled by (1) setting bbox outside weights and (2) SmoothL1Loss
         # normalizes by IMS_PER_BATCH

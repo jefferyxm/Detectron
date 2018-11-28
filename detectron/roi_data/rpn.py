@@ -44,6 +44,8 @@ def get_rpn_blob_names(is_training=True):
             for lvl in range(cfg.FPN.RPN_MIN_LEVEL, cfg.FPN.RPN_MAX_LEVEL + 1):
                 blob_names += [
                     'rpn_labels_int32_wide_fpn' + str(lvl),
+                    'rpn_labels_int32_wide_inside_weights_fpn' + str(lvl),
+                    'rpn_labels_int32_wide_outside_weights_fpn' + str(lvl),
                     'rpn_bbox_targets_wide_fpn' + str(lvl),
                     'rpn_bbox_inside_weights_wide_fpn' + str(lvl),
                     'rpn_bbox_outside_weights_wide_fpn' + str(lvl)
@@ -101,6 +103,55 @@ def add_rpn_blobs(blobs, im_scales, roidb):
             for i, lvl in enumerate(range(k_min, k_max + 1)):
                 for k, v in rpn_blobs[i].items():
                     blobs[k + '_fpn' + str(lvl)].append(v)
+
+            # print('-----------------------------------------------')        
+            # import matplotlib.pyplot as plt
+
+            # for i in range(3):
+            #     plt.subplot(2,3,1)
+            #     plt.imshow(blobs['rpn_labels_int32_wide_fpn2'][0][0,i,0:int(im_height//4),0:int(im_width//4)], cmap=plt.cm.hot  )
+            #     plt.subplot(2,3,2)
+            #     plt.imshow(blobs['rpn_labels_int32_wide_fpn3'][0][0,i,0:int(im_height//8),0:int(im_width//8)],cmap=plt.cm.hot )
+            #     plt.subplot(2,3,3)
+            #     plt.imshow(blobs['rpn_labels_int32_wide_fpn4'][0][0,i,0:int(im_height//16),0:int(im_width//16)],cmap=plt.cm.hot )
+            #     plt.subplot(2,3,4)
+            #     plt.imshow(blobs['rpn_labels_int32_wide_fpn5'][0][0,i,0:int(im_height//32),0:int(im_width//32)],cmap=plt.cm.hot )
+            #     plt.subplot(2,3,5)
+            #     plt.imshow(
+            #         [
+            #             [-1,-1,-1],
+            #             [0,0,0],
+            #             [1,1,1],
+            #         ],
+            #         cmap=plt.cm.hot
+            #     )
+            #     # print(entry)
+
+            #     im_path = entry['image']
+            #     import cv2
+            #     anno_name = 'anno/gt_' + (im_path.split('/')[-1]).split('.')[0] + '.txt'
+            #     anno_file = im_path.replace(im_path.split('/')[-1], anno_name)
+            #     print(anno_file)
+            #     gt_file = open(anno_file, 'r')
+            #     gt_lines = gt_file.readlines()
+            #     gt_file.close()
+
+            #     plt.subplot(2,3,6)
+            #     im = cv2.imread(im_path)
+            #     im_plt = im[:,:,(2,1,0)]
+            #     plt.imshow(im_plt)
+            #     for line in gt_lines:
+            #         if '\xef\xbb\xbf'  in line:
+            #             line = line.replace('\xef\xbb\xbf','') 
+            #         word = line.split(',')[-1]        
+            #         if word != '###\r\n':
+            #             print(word)
+            #             str_points = line.split(',')[:8]
+            #             points = map(int, str_points)
+            #             for i in range(4):
+            #                 plt.gca().add_patch(plt.Circle((points[i*2], points[i*2 + 1]), 1, edgecolor='r', fill=True, linewidth=2))
+            #     plt.show()
+
         else:
             # Classical RPN, applied to a single feature level
             rpn_blobs = _get_rpn_blobs(
@@ -155,7 +206,7 @@ def _get_rpn_blobs(im_height, im_width, foas, all_anchors, gt_boxes):
 
     # Compute anchor labels:
     # label=1 is positive, 0 is negative, -1 is don't care (ignore)
-    labels = np.empty((num_inside, ), dtype=np.int32)
+    labels = np.empty((num_inside, ), dtype=np.float32)
     labels.fill(-1)
     if len(gt_boxes) > 0:
         # Compute overlaps between the anchors and the gt boxes overlaps
@@ -173,6 +224,7 @@ def _get_rpn_blobs(im_height, im_width, foas, all_anchors, gt_boxes):
             gt_to_anchor_argmax,
             np.arange(anchor_by_gt_overlap.shape[1])
         ]
+
         # Find all anchors that share the max overlap amount
         # (this includes many ties)
         anchors_with_max_overlap = np.where(
@@ -181,29 +233,46 @@ def _get_rpn_blobs(im_height, im_width, foas, all_anchors, gt_boxes):
 
         # Fg label: for each gt use anchors with highest overlap
         # (including ties)
-        labels[anchors_with_max_overlap] = 1
+        # labels[anchors_with_max_overlap] = 1
+        
+        # replace the label with actual IOU
+        for i in range(len(anchors_with_max_overlap)):
+            labels[anchors_with_max_overlap[i]] = max(anchor_by_gt_overlap[anchors_with_max_overlap[i]])
+
         # Fg label: above threshold IOU
-        labels[anchor_to_gt_max >= cfg.TRAIN.RPN_POSITIVE_OVERLAP] = 1
+        # labels[anchor_to_gt_max >= cfg.TRAIN.RPN_POSITIVE_OVERLAP] = 1
+        give_reg_value_index = np.where(anchor_to_gt_max >= cfg.TRAIN.RPN_POSITIVE_OVERLAP)[0]
+        for i in range(len(give_reg_value_index)):
+            labels[give_reg_value_index[i]] = anchor_to_gt_max[give_reg_value_index[i]]
 
     # subsample positive labels if we have too many
     num_fg = int(cfg.TRAIN.RPN_FG_FRACTION * cfg.TRAIN.RPN_BATCH_SIZE_PER_IM)
-    fg_inds = np.where(labels == 1)[0]
+    fg_inds = np.where(labels >= cfg.TRAIN.RPN_POSITIVE_OVERLAP )[0]
     if len(fg_inds) > num_fg:
         disable_inds = npr.choice(
             fg_inds, size=(len(fg_inds) - num_fg), replace=False
         )
         labels[disable_inds] = -1
-    fg_inds = np.where(labels == 1)[0]
+    fg_inds = np.where(labels >= cfg.TRAIN.RPN_POSITIVE_OVERLAP)[0]
 
     # subsample negative labels if we have too many
     # (samples with replacement, but since the set of bg inds is large most
     # samples will not have repeats)
-    num_bg = cfg.TRAIN.RPN_BATCH_SIZE_PER_IM - np.sum(labels == 1)
+    num_bg = cfg.TRAIN.RPN_BATCH_SIZE_PER_IM - np.sum(labels >= cfg.TRAIN.RPN_POSITIVE_OVERLAP)
     bg_inds = np.where(anchor_to_gt_max < cfg.TRAIN.RPN_NEGATIVE_OVERLAP)[0]
     if len(bg_inds) > num_bg:
         enable_inds = bg_inds[npr.randint(len(bg_inds), size=num_bg)]
         labels[enable_inds] = 0
     bg_inds = np.where(labels == 0)[0]
+
+    target_inside_weights = np.zeros((num_inside), dtype=np.float32)
+    target_inside_weights[labels >= cfg.TRAIN.RPN_POSITIVE_OVERLAP] = 1.0
+
+    target_outside_weights = np.zeros((num_inside), dtype=np.float32)
+    num_examples = np.sum(labels >= 0)
+    target_outside_weights[labels >= cfg.TRAIN.RPN_POSITIVE_OVERLAP] = 1.0 / num_examples
+    target_outside_weights[labels == 0] = 1.0 / num_examples
+
 
     bbox_targets = np.zeros((num_inside, 4), dtype=np.float32)
     bbox_targets[fg_inds, :] = data_utils.compute_targets(
@@ -216,7 +285,7 @@ def _get_rpn_blobs(im_height, im_width, foas, all_anchors, gt_boxes):
     # Bbox regression is only trained on positive examples so we set their
     # weights to 1.0 (or otherwise if config is different) and 0 otherwise
     bbox_inside_weights = np.zeros((num_inside, 4), dtype=np.float32)
-    bbox_inside_weights[labels == 1, :] = (1.0, 1.0, 1.0, 1.0)
+    bbox_inside_weights[labels >= cfg.TRAIN.RPN_POSITIVE_OVERLAP, :] = (1.0, 1.0, 1.0, 1.0)
 
     # The bbox regression loss only averages by the number of images in the
     # mini-batch, whereas we need to average by the total number of example
@@ -226,11 +295,18 @@ def _get_rpn_blobs(im_height, im_width, foas, all_anchors, gt_boxes):
     bbox_outside_weights = np.zeros((num_inside, 4), dtype=np.float32)
     # uniform weighting of examples (given non-uniform sampling)
     num_examples = np.sum(labels >= 0)
-    bbox_outside_weights[labels == 1, :] = 1.0 / num_examples
+    bbox_outside_weights[labels >= cfg.TRAIN.RPN_POSITIVE_OVERLAP, :] = 1.0 / num_examples
     bbox_outside_weights[labels == 0, :] = 1.0 / num_examples
 
     # Map up to original set of anchors
     labels = data_utils.unmap(labels, total_anchors, inds_inside, fill=-1)
+    target_inside_weights = data_utils.unmap(
+        target_inside_weights, total_anchors, inds_inside, fill=0
+    )
+    target_outside_weights = data_utils.unmap(
+        target_outside_weights, total_anchors, inds_inside, fill=0
+    )
+
     bbox_targets = data_utils.unmap(
         bbox_targets, total_anchors, inds_inside, fill=0
     )
@@ -250,6 +326,9 @@ def _get_rpn_blobs(im_height, im_width, foas, all_anchors, gt_boxes):
         A = foa.num_cell_anchors
         end_idx = start_idx + H * W * A
         _labels = labels[start_idx:end_idx]
+        _target_inside_weights = target_inside_weights[start_idx:end_idx]
+        _target_outside_weights = target_outside_weights[start_idx:end_idx]
+
         _bbox_targets = bbox_targets[start_idx:end_idx, :]
         _bbox_inside_weights = bbox_inside_weights[start_idx:end_idx, :]
         _bbox_outside_weights = bbox_outside_weights[start_idx:end_idx, :]
@@ -257,6 +336,10 @@ def _get_rpn_blobs(im_height, im_width, foas, all_anchors, gt_boxes):
 
         # labels output with shape (1, A, height, width)
         _labels = _labels.reshape((1, H, W, A)).transpose(0, 3, 1, 2)
+        _target_inside_weights = _target_inside_weights.reshape((1, H, W, A)).transpose(0, 3, 1, 2)
+        _target_outside_weights = _target_outside_weights.reshape((1, H, W, A)).transpose(0, 3, 1, 2)
+
+
         # bbox_targets output with shape (1, 4 * A, height, width)
         _bbox_targets = _bbox_targets.reshape(
             (1, H, W, A * 4)).transpose(0, 3, 1, 2)
@@ -269,6 +352,8 @@ def _get_rpn_blobs(im_height, im_width, foas, all_anchors, gt_boxes):
         blobs_out.append(
             dict(
                 rpn_labels_int32_wide=_labels,
+                rpn_labels_int32_wide_inside_weights = _target_inside_weights,
+                rpn_labels_int32_wide_outside_weights = _target_outside_weights,
                 rpn_bbox_targets_wide=_bbox_targets,
                 rpn_bbox_inside_weights_wide=_bbox_inside_weights,
                 rpn_bbox_outside_weights_wide=_bbox_outside_weights
