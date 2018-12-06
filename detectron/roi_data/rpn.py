@@ -386,7 +386,6 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                                 # print(gt_box)
                                 # print(this_level_box_delta[ap_idx,:])
                                 # input()
-
                
                 fg_idx = np.where(this_level_label==1)[0]
                 fg_num = len(fg_idx)
@@ -414,11 +413,13 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                 this_level_box_inside_weight = np.zeros((this_level_ap.shape[0], 4), dtype=np.float32)
                 this_level_box_inside_weight[this_level_label == 1, :] = (1.0, 1.0, 1.0, 1.0)
 
-                this_level_box_outside_weight = np.zeros((num_inside, 4), dtype=np.float32)
+                this_level_box_outside_weight = np.zeros((this_level_ap.shape[0], 4), dtype=np.float32)
                 # uniform weighting of examples (given non-uniform sampling)
                 num_examples = fg_num + bg_num
-                this_level_box_outside_weight[this_level_label == 1, :] = 1.0 / num_examples
-                this_level_box_outside_weight[this_level_label == 0, :] = 1.0 / num_examples
+                # print(num_examples)
+                if num_examples > 0:
+                    this_level_box_outside_weight[this_level_label == 1, :] = 1.0 / num_examples
+                    this_level_box_outside_weight[this_level_label == 0, :] = 1.0 / num_examples
 
 
                 # reshape as blob shape
@@ -470,13 +471,13 @@ def ap_inside_gt(gts, ap):
 
 def find_best_box(ap, gt, norm=1.0):
     def aim_func(x, gt, c):
-        gtw = gt[2] - gt[0]
-        gth = gt[3] - gt[1]
+        gtw = gt[2] - gt[0] + 1
+        gth = gt[3] - gt[1] + 1
 
         # obj = [c(1)-x(1)/2, c(2)-x(2)/2, c(1)+x(1)/2, c(2) + x(2)/2]
-        obj = [c[0]-x[0]/2.0, c[1]-x[1]/2.0, c[0]+x[0]/2.0-1, c[1]+x[1]/2.0-1]
-        objw = obj[2] - obj[0]
-        objh = obj[3] - obj[1]
+        obj = [c[0]-x[0]*0.5, c[1]-x[1]*0.5, c[0]+x[0]*0.5-1, c[1]+x[1]*0.5-1]
+        objw = obj[2] - obj[0] + 1
+        objh = obj[3] - obj[1] + 1
 
         xx1 = max(gt[0], obj[0])
         yy1 = max(gt[1], obj[1])
@@ -494,6 +495,7 @@ def find_best_box(ap, gt, norm=1.0):
     import random
     scores=np.zeros((len(gt),), dtype=np.float32)
     whs=np.zeros((len(gt),2), dtype=np.float32)
+    # return scores, whs
     for gt_idx in range(len(gt)):
         wh = max(abs(gt[gt_idx][2]-gt[gt_idx][0]), abs(gt[gt_idx][3]-gt[gt_idx][1]))
         x0 = (int(wh*2), int(wh*2))
@@ -501,154 +503,3 @@ def find_best_box(ap, gt, norm=1.0):
         scores[gt_idx] = -res.fun
         whs[gt_idx] = res.x/(norm*1.0)
     return scores, whs
-
-
-def _get_adarpn_blobs(im_height, im_width, foas, all_anchors, gt_boxes):
-    total_anchors = all_anchors.shape[0]
-    straddle_thresh = cfg.TRAIN.RPN_STRADDLE_THRESH
-
-    if straddle_thresh >= 0:
-        # Only keep anchors inside the image by a margin of straddle_thresh
-        # Set TRAIN.RPN_STRADDLE_THRESH to -1 (or a large value) to keep all
-        # anchors
-        inds_inside = np.where(
-            (all_anchors[:, 0] >= -straddle_thresh) &
-            (all_anchors[:, 1] >= -straddle_thresh) &
-            (all_anchors[:, 2] < im_width + straddle_thresh) &
-            (all_anchors[:, 3] < im_height + straddle_thresh)
-        )[0]
-        # keep only inside anchors
-        anchors = all_anchors[inds_inside, :]
-    else:
-        inds_inside = np.arange(all_anchors.shape[0])
-        anchors = all_anchors
-    num_inside = len(inds_inside)
-
-    logger.debug('total_anchors: {}'.format(total_anchors))
-    logger.debug('inds_inside: {}'.format(num_inside))
-    logger.debug('anchors.shape: {}'.format(anchors.shape))
-
-    # Compute anchor labels:
-    # label=1 is positive, 0 is negative, -1 is don't care (ignore)
-    labels = np.empty((num_inside, ), dtype=np.int32)
-    labels.fill(-1)
-    if len(gt_boxes) > 0:
-        # Compute overlaps between the anchors and the gt boxes overlaps
-        anchor_by_gt_overlap = box_utils.bbox_overlaps(anchors, gt_boxes)
-        # Map from anchor to gt box that has highest overlap
-        anchor_to_gt_argmax = anchor_by_gt_overlap.argmax(axis=1)
-        # For each anchor, amount of overlap with most overlapping gt box
-        anchor_to_gt_max = anchor_by_gt_overlap[np.arange(num_inside),
-                                                anchor_to_gt_argmax]
-
-        # Map from gt box to an anchor that has highest overlap
-        gt_to_anchor_argmax = anchor_by_gt_overlap.argmax(axis=0)
-        # For each gt box, amount of overlap with most overlapping anchor
-        gt_to_anchor_max = anchor_by_gt_overlap[
-            gt_to_anchor_argmax,
-            np.arange(anchor_by_gt_overlap.shape[1])
-        ]
-        # Find all anchors that share the max overlap amount
-        # (this includes many ties)
-        anchors_with_max_overlap = np.where(
-            anchor_by_gt_overlap == gt_to_anchor_max
-        )[0]
-
-        # Fg label: for each gt use anchors with highest overlap
-        # (including ties)
-        labels[anchors_with_max_overlap] = 1
-        # Fg label: above threshold IOU
-        labels[anchor_to_gt_max >= cfg.TRAIN.RPN_POSITIVE_OVERLAP] = 1
-
-    # subsample positive labels if we have too many
-    num_fg = int(cfg.TRAIN.RPN_FG_FRACTION * cfg.TRAIN.RPN_BATCH_SIZE_PER_IM)
-    fg_inds = np.where(labels == 1)[0]
-    if len(fg_inds) > num_fg:
-        disable_inds = npr.choice(
-            fg_inds, size=(len(fg_inds) - num_fg), replace=False
-        )
-        labels[disable_inds] = -1
-    fg_inds = np.where(labels == 1)[0]
-
-    # subsample negative labels if we have too many
-    # (samples with replacement, but since the set of bg inds is large most
-    # samples will not have repeats)
-    num_bg = cfg.TRAIN.RPN_BATCH_SIZE_PER_IM - np.sum(labels == 1)
-    bg_inds = np.where(anchor_to_gt_max < cfg.TRAIN.RPN_NEGATIVE_OVERLAP)[0]
-    if len(bg_inds) > num_bg:
-        enable_inds = bg_inds[npr.randint(len(bg_inds), size=num_bg)]
-        labels[enable_inds] = 0
-    bg_inds = np.where(labels == 0)[0]
-
-    bbox_targets = np.zeros((num_inside, 4), dtype=np.float32)
-    bbox_targets[fg_inds, :] = data_utils.compute_targets(
-        anchors[fg_inds, :], gt_boxes[anchor_to_gt_argmax[fg_inds], :]
-    )
-
-    # Bbox regression loss has the form:
-    #   loss(x) = weight_outside * L(weight_inside * x)
-    # Inside weights allow us to set zero loss on an element-wise basis
-    # Bbox regression is only trained on positive examples so we set their
-    # weights to 1.0 (or otherwise if config is different) and 0 otherwise
-    bbox_inside_weights = np.zeros((num_inside, 4), dtype=np.float32)
-    bbox_inside_weights[labels == 1, :] = (1.0, 1.0, 1.0, 1.0)
-
-    # The bbox regression loss only averages by the number of images in the
-    # mini-batch, whereas we need to average by the total number of example
-    # anchors selected
-    # Outside weights are used to scale each element-wise loss so the final
-    # average over the mini-batch is correct
-    bbox_outside_weights = np.zeros((num_inside, 4), dtype=np.float32)
-    # uniform weighting of examples (given non-uniform sampling)
-    num_examples = np.sum(labels >= 0)
-    bbox_outside_weights[labels == 1, :] = 1.0 / num_examples
-    bbox_outside_weights[labels == 0, :] = 1.0 / num_examples
-
-    # Map up to original set of anchors
-    labels = data_utils.unmap(labels, total_anchors, inds_inside, fill=-1)
-    bbox_targets = data_utils.unmap(
-        bbox_targets, total_anchors, inds_inside, fill=0
-    )
-    bbox_inside_weights = data_utils.unmap(
-        bbox_inside_weights, total_anchors, inds_inside, fill=0
-    )
-    bbox_outside_weights = data_utils.unmap(
-        bbox_outside_weights, total_anchors, inds_inside, fill=0
-    )
-
-    # Split the generated labels, etc. into labels per each field of anchors
-    blobs_out = []
-    start_idx = 0
-    for foa in foas:
-        H = foa.field_size
-        W = foa.field_size
-        A = foa.num_cell_anchors
-        end_idx = start_idx + H * W * A
-        _labels = labels[start_idx:end_idx]
-        _bbox_targets = bbox_targets[start_idx:end_idx, :]
-        _bbox_inside_weights = bbox_inside_weights[start_idx:end_idx, :]
-        _bbox_outside_weights = bbox_outside_weights[start_idx:end_idx, :]
-        start_idx = end_idx
-
-        # labels output with shape (1, A, height, width)
-        _labels = _labels.reshape((1, H, W, A)).transpose(0, 3, 1, 2)
-        # bbox_targets output with shape (1, 4 * A, height, width)
-        _bbox_targets = _bbox_targets.reshape(
-            (1, H, W, A * 4)).transpose(0, 3, 1, 2)
-        # bbox_inside_weights output with shape (1, 4 * A, height, width)
-        _bbox_inside_weights = _bbox_inside_weights.reshape(
-            (1, H, W, A * 4)).transpose(0, 3, 1, 2)
-        # bbox_outside_weights output with shape (1, 4 * A, height, width)
-        _bbox_outside_weights = _bbox_outside_weights.reshape(
-            (1, H, W, A * 4)).transpose(0, 3, 1, 2)
-        blobs_out.append(
-            dict(
-                adarpn_labels_int32_wide=_labels,
-                adarpn_bbox_width_wide=_widths,
-                adarpn_bbox_height_wide=_heigths,
-                adarpn_bbox_targets_wide=_bbox_targets,
-                adarpn_bbox_inside_weights_wide=_bbox_inside_weights,
-                adarpn_bbox_outside_weights_wide=_bbox_outside_weights
-            )
-        )
-    return blobs_out[0] if len(blobs_out) == 1 else blobs_out

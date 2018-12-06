@@ -41,6 +41,7 @@ class GenerateProposalsOp(object):
     def forward(self, inputs, outputs):
         """See modeling.detector.GenerateProposals for inputs/outputs
         documentation.
+        remove anchor machanic and add widht and height predictions
         """
         # 1. for each location i in a (H, W) grid:
         #      generate A anchor boxes centered on cell i
@@ -55,11 +56,13 @@ class GenerateProposalsOp(object):
 
         # predicted probability of fg object for each RPN anchor
         scores = inputs[0].data
+        # boxW and boxH
+        bbox_whs = inputs[1].data
         # predicted achors transformations
-        bbox_deltas = inputs[1].data
+        bbox_deltas = inputs[2].data
         # input image (height, width, scale), in which scale is the scale factor
         # applied to the original dataset image to get the network input image
-        im_info = inputs[2].data
+        im_info = inputs[3].data
         # 1. Generate proposals from bbox deltas and shifted anchors
         height, width = scores.shape[-2:]
         # Enumerate all shifted positions on the (H, W) grid
@@ -68,8 +71,11 @@ class GenerateProposalsOp(object):
         shift_x, shift_y = np.meshgrid(shift_x, shift_y, copy=False)
         # Convert to (K, 4), K=H*W, where the columns are (dx, dy, dx, dy)
         # shift pointing to each grid location
-        shifts = np.vstack((shift_x.ravel(), shift_y.ravel(),
-                            shift_x.ravel(), shift_y.ravel())).transpose()
+        shifts = np.vstack((shift_x.ravel(), shift_y.ravel())).transpose()
+
+        center_x = (field_stride - 1) * 0.5
+        center_y = center_x
+        anchor_points = shifts + [center_x, center_y]
 
         # Broacast anchors over shifts to enumerate all anchors at all positions
         # in the (H, W) grid:
@@ -77,17 +83,18 @@ class GenerateProposalsOp(object):
         #   - K shifts of shape (K, 1, 4) to get
         #   - all shifted anchors of shape (K, A, 4)
         #   - reshape to (K*A, 4) shifted anchors
-        num_images = inputs[0].shape[0]
-        A = self._num_anchors
-        K = shifts.shape[0]
-        all_anchors = self._anchors[np.newaxis, :, :] + shifts[:, np.newaxis, :]
-        all_anchors = all_anchors.reshape((K * A, 4))
+        
+        # A = self._num_anchors
+        # K = shifts.shape[0]
+        # all_anchors = self._anchors[np.newaxis, :, :] + shifts[:, np.newaxis, :]
+        # all_anchors = all_anchors.reshape((K * A, 4))
 
+        num_images = inputs[0].shape[0]
         rois = np.empty((0, 5), dtype=np.float32)
         roi_probs = np.empty((0, 1), dtype=np.float32)
         for im_i in range(num_images):
             im_i_boxes, im_i_probs = self.proposals_for_one_image(
-                im_info[im_i, :], all_anchors, bbox_deltas[im_i, :, :, :],
+                im_info[im_i, :], anchor_points, bbox_whs[im_i, :, :, :], bbox_deltas[im_i, :, :, :],
                 scores[im_i, :, :, :]
             )
             batch_inds = im_i * np.ones(
@@ -104,7 +111,7 @@ class GenerateProposalsOp(object):
             outputs[1].data[...] = roi_probs
 
     def proposals_for_one_image(
-        self, im_info, all_anchors, bbox_deltas, scores
+        self, im_info, anchor_points, bbox_whs, bbox_deltas, scores
     ):
         # Get mode-dependent configuration
         cfg_key = 'TRAIN' if self._train else 'TEST'
@@ -119,6 +126,8 @@ class GenerateProposalsOp(object):
         #   - reshape to (H * W * A, 4) where rows are ordered by (H, W, A)
         #     in slowest to fastest order to match the enumerated anchors
         bbox_deltas = bbox_deltas.transpose((1, 2, 0)).reshape((-1, 4))
+
+        bbox_whs = bbox_whs.transpose((1, 2, 0)).reshape((-1, 2))
 
         # Same story for the scores:
         #   - scores are (A, H, W) format from conv output
@@ -139,13 +148,15 @@ class GenerateProposalsOp(object):
             )[:pre_nms_topN]
             order = np.argsort(-scores[inds].squeeze())
             order = inds[order]
+        # keep the top k candidates
         bbox_deltas = bbox_deltas[order, :]
-        all_anchors = all_anchors[order, :]
+        bbox_whs = bbox_whs[order, :]
+        anchor_points = anchor_points[order, :]
         scores = scores[order]
 
         # Transform anchors into proposals via bbox transformations
-        proposals = box_utils.bbox_transform(
-            all_anchors, bbox_deltas, (1.0, 1.0, 1.0, 1.0))
+        proposals = box_utils.bbox_transform_anchor_point(
+            anchor_points, bbox_whs, bbox_deltas, (1.0, 1.0, 1.0, 1.0))
 
         # 2. clip proposals to image (may result in proposals with zero area
         # that will be removed in the next step)
