@@ -71,7 +71,7 @@ def get_minibatch(roidb):
     blobs['data'] = im_blob
     if cfg.RPN.RPN_ON:
         # RPN-only or end-to-end Faster/Mask R-CNN
-        valid = rpn_roi_data.add_rpn_blobs(blobs, im_scales, roidb)
+        valid = rpn_roi_data.add_adarpn_blobs(blobs, im_scales, roidb) 
     elif cfg.RETINANET.RETINANET_ON:
         im_width, im_height = im_blob.shape[3], im_blob.shape[2]
         # im_width, im_height corresponds to the network input: padded image

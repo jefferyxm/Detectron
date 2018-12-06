@@ -353,7 +353,7 @@ def add_fpn_rpn_outputs(model, blobs_in, dim_in, spatial_scales):
             # Proposal classification scores
             rpn_cls_logits_fpn = model.Conv(
                 conv_rpn_fpn,
-                'rpn_cls_logits_fpn' + slvl,
+                'adarpn_cls_logits_fpn' + slvl,
                 dim_in,
                 num_anchors,
                 kernel=1,
@@ -365,7 +365,7 @@ def add_fpn_rpn_outputs(model, blobs_in, dim_in, spatial_scales):
             # Proposal bbox regression deltas
             rpn_bbox_pred_fpn = model.Conv(
                 conv_rpn_fpn,
-                'rpn_bbox_pred_fpn' + slvl,
+                'adarpn_bbox_pred_fpn' + slvl,
                 dim_in,
                 4 * num_anchors,
                 kernel=1,
@@ -391,28 +391,28 @@ def add_fpn_rpn_outputs(model, blobs_in, dim_in, spatial_scales):
             )
             model.Relu(conv_rpn_fpn, conv_rpn_fpn)
             # Proposal classification scores
-            rpn_cls_logits_fpn = model.ConvShared(
+            adarpn_cls_logits_fpn = model.ConvShared(
                 conv_rpn_fpn,
-                'rpn_cls_logits_fpn' + slvl,
+                'adarpn_cls_logits_fpn' + slvl,
                 dim_in,
                 num_anchors,
                 kernel=1,
                 pad=0,
                 stride=1,
-                weight='rpn_cls_logits_fpn' + sk_min + '_w',
-                bias='rpn_cls_logits_fpn' + sk_min + '_b'
+                weight='adarpn_cls_logits_fpn' + sk_min + '_w',
+                bias='adarpn_cls_logits_fpn' + sk_min + '_b'
             )
             # Proposal bbox regression deltas
-            rpn_bbox_pred_fpn = model.ConvShared(
+            adarpn_bbox_pred_fpn = model.ConvShared(
                 conv_rpn_fpn,
-                'rpn_bbox_pred_fpn' + slvl,
+                'adarpn_bbox_pred_fpn' + slvl,
                 dim_in,
                 4 * num_anchors,
                 kernel=1,
                 pad=0,
                 stride=1,
-                weight='rpn_bbox_pred_fpn' + sk_min + '_w',
-                bias='rpn_bbox_pred_fpn' + sk_min + '_b'
+                weight='adarpn_bbox_pred_fpn' + sk_min + '_w',
+                bias='adarpn_bbox_pred_fpn' + sk_min + '_b'
             )
 
         if not model.train or cfg.MODEL.FASTER_RCNN:
@@ -426,11 +426,11 @@ def add_fpn_rpn_outputs(model, blobs_in, dim_in, spatial_scales):
                 sizes=(cfg.FPN.RPN_ANCHOR_START_SIZE * 2.**(lvl - k_min), ),
                 aspect_ratios=cfg.FPN.RPN_ASPECT_RATIOS
             )
-            rpn_cls_probs_fpn = model.net.Sigmoid(
-                rpn_cls_logits_fpn, 'rpn_cls_probs_fpn' + slvl
+            adarpn_cls_probs_fpn = model.net.Sigmoid(
+                adarpn_cls_logits_fpn, 'adarpn_cls_probs_fpn' + slvl
             )
             model.GenerateProposals(
-                [rpn_cls_probs_fpn, rpn_bbox_pred_fpn, 'im_info'],
+                [adarpn_cls_probs_fpn, adarpn_bbox_pred_fpn, 'im_info'],
                 ['rpn_rois_fpn' + slvl, 'rpn_roi_probs_fpn' + slvl],
                 anchors=lvl_anchors,
                 spatial_scale=sc
@@ -445,36 +445,49 @@ def add_fpn_rpn_losses(model):
         # Spatially narrow the full-sized RPN label arrays to match the feature map
         # shape
         model.net.SpatialNarrowAs(
-            ['rpn_labels_int32_wide_fpn' + slvl, 'rpn_cls_logits_fpn' + slvl],
-            'rpn_labels_int32_fpn' + slvl
+            ['adarpn_labels_int32_wide_fpn' + slvl, 'adarpn_cls_logits_fpn' + slvl],
+            'adarpn_labels_int32_fpn' + slvl
         )
-        for key in ('targets', 'inside_weights', 'outside_weights'):
+        model.net.SpatialNarrowAs(
+            ['adarpn_bbox_wh_wide_fpn' + slvl, 'adarpn_bbox_wh_fpn' + slvl],
+            'adarpn_bbox_wh_fpn' + slvl
+        )
+        for key in ('delta', 'inside_weights', 'outside_weights'):
             model.net.SpatialNarrowAs(
                 [
-                    'rpn_bbox_' + key + '_wide_fpn' + slvl,
-                    'rpn_bbox_pred_fpn' + slvl
+                    'adarpn_bbox_' + key + '_wide_fpn' + slvl,
+                    'adarpn_bbox_pred_fpn' + slvl
                 ],
-                'rpn_bbox_' + key + '_fpn' + slvl
+                'adarpn_bbox_' + key + '_fpn' + slvl
             )
-        loss_rpn_cls_fpn = model.net.SigmoidCrossEntropyLoss(
-            ['rpn_cls_logits_fpn' + slvl, 'rpn_labels_int32_fpn' + slvl],
-            'loss_rpn_cls_fpn' + slvl,
-            normalize=0,
-            scale=(
-                model.GetLossScale() / cfg.TRAIN.RPN_BATCH_SIZE_PER_IM /
-                cfg.TRAIN.IMS_PER_BATCH
-            )
+
+        """"
+        normalize",
+        "(int) default 1; if true, divide the loss by the number of targets > "
+        "-1.")
+        it seems that normalize should be 1, so that it could be normalized by the actually count of target
+        """
+        loss_adarpn_cls_fpn = model.net.SigmoidCrossEntropyLoss(
+            ['adarpn_cls_logits_fpn' + slvl, 'adarpn_labels_int32_fpn' + slvl],
+            'loss_adarpn_cls_fpn' + slvl,
+            # normalize=0,
+            # scale=(
+            #     model.GetLossScale() / cfg.TRAIN.RPN_BATCH_SIZE_PER_IM /
+            #     cfg.TRAIN.IMS_PER_BATCH
+            # )
+            normalize=1,
+            scale = (model.GetlossScale())
         )
         # Normalization by (1) RPN_BATCH_SIZE_PER_IM and (2) IMS_PER_BATCH is
         # handled by (1) setting bbox outside weights and (2) SmoothL1Loss
         # normalizes by IMS_PER_BATCH
-        loss_rpn_bbox_fpn = model.net.SmoothL1Loss(
+        loss_adarpn_bbox_fpn = model.net.SmoothL1Loss(
             [
-                'rpn_bbox_pred_fpn' + slvl, 'rpn_bbox_targets_fpn' + slvl,
-                'rpn_bbox_inside_weights_fpn' + slvl,
-                'rpn_bbox_outside_weights_fpn' + slvl
+                'adarpn_bbox_pred_fpn' + slvl, 'adarpn_bbox_delta_fpn' + slvl,
+                'adarpn_bbox_inside_weights_fpn' + slvl,
+                'adarpn_bbox_outside_weights_fpn' + slvl
             ],
-            'loss_rpn_bbox_fpn' + slvl,
+            'loss_adarpn_bbox_fpn' + slvl,
             beta=1. / 9.,
             scale=model.GetLossScale(),
         )
@@ -482,7 +495,7 @@ def add_fpn_rpn_losses(model):
             blob_utils.
             get_loss_gradients(model, [loss_rpn_cls_fpn, loss_rpn_bbox_fpn])
         )
-        model.AddLosses(['loss_rpn_cls_fpn' + slvl, 'loss_rpn_bbox_fpn' + slvl])
+        model.AddLosses(['loss_adarpn_cls_fpn' + slvl, 'loss_adarpn_bbox_fpn' + slvl])
     return loss_gradients
 
 
