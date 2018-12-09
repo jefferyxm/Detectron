@@ -228,13 +228,13 @@ class RoIDataLoader(object):
         if prefill:
             logger.info('Pre-filling mini-batch queue...')
             while not self._minibatch_queue.full():
-                logger.info(
-                    '  [{:d}/{:d}]'.format(
-                        self._minibatch_queue.qsize(),
-                        self._minibatch_queue.maxsize
-                    )
-                )
-                time.sleep(0.1)
+                # logger.info(
+                #     '  [{:d}/{:d}]'.format(
+                #         self._minibatch_queue.qsize(),
+                #         self._minibatch_queue.maxsize
+                #     )
+                # )
+                # time.sleep(0.1)
                 # Detect failure and shutdown
                 if self.coordinator.should_stop():
                     self.shutdown()

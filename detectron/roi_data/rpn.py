@@ -298,6 +298,7 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
         k_max = cfg.FPN.RPN_MAX_LEVEL
         k_min = cfg.FPN.RPN_MIN_LEVEL
         anchor_points = []
+
         for lvl in range(k_min, k_max + 1):
             field_stride = 2.**lvl
             
@@ -337,21 +338,28 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
 
             # for each fpn level, compute the target
             for i, lvl in enumerate(range(k_min, k_max + 1)):
+                
                 anchor_size = (cfg.FPN.RPN_ANCHOR_START_SIZE * 2.**(lvl - k_min), )
                 this_level_ap = anchor_points[i]
                 this_level_label = np.empty((this_level_ap.shape[0], ), dtype=np.int32)
                 this_level_label.fill(-1)
                 this_level_wh = np.zeros((this_level_ap.shape[0], 2), dtype=np.float32)
                 this_level_box_delta = np.zeros((this_level_ap.shape[0], 4), dtype=np.float32)
+                
                 if len(gt_rois) > 0:
+                    
                     for ap_idx in range(len(this_level_ap)):
-                        valid_gts = ap_inside_gt(gt_rois, this_level_ap[ap_idx])
+                        # anchor points inside gts
+                        valid_gts = ap_inside_gt(gt_rois, this_level_ap[ap_idx], anchor_size[0]*1.0) 
+                        
                         if(len(valid_gts)>0):
+
                             scores, whs = find_best_box(this_level_ap[ap_idx], valid_gts, anchor_size[0]*1.0)
+
                             # print(whs)
                             areas = whs[:,0]*whs[:,1]
-                            valid_idx = np.where((areas>0.25) & (areas < 4) 
-                                & (scores >= cfg.TRAIN.RPN_POSITIVE_OVERLAP))[0]
+                            valid_idx = np.where( (areas> 0.25)  & (areas< 4)  &
+                                 (scores >= cfg.TRAIN.RPN_POSITIVE_OVERLAP))[0]
                             if(valid_idx.shape[0]>0):
                                 scores = scores[valid_idx]
                                 whs = whs[valid_idx,:]
@@ -378,7 +386,7 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                                 targets_dh = np.log(gt_height / ex_height)
 
                                 this_level_box_delta[ap_idx, :] = np.array([targets_dx, targets_dy, targets_dw, targets_dh])
-                                
+
                                 # print(this_level_ap[ap_idx])
                                 # print(scores[0])
                                 # print([gt_ctr_x, gt_ctr_y])
@@ -386,11 +394,13 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                                 # print(gt_box)
                                 # print(this_level_box_delta[ap_idx,:])
                                 # input()
-               
+                     
+
                 fg_idx = np.where(this_level_label==1)[0]
                 fg_num = len(fg_idx)
-                
-                # compute gb labels
+
+
+                # compute bg labels
                 bg_inds = np.where(this_level_label==-1)[0]
                 if len(bg_inds) > fg_num:
                     # need to filter some bg, so selecet labels a little more
@@ -416,11 +426,13 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                 this_level_box_outside_weight = np.zeros((this_level_ap.shape[0], 4), dtype=np.float32)
                 # uniform weighting of examples (given non-uniform sampling)
                 num_examples = fg_num + bg_num
-                # print(num_examples)
+                target_sum = fg_num + target_sum
+
+                # print(fg_num)
+                
                 if num_examples > 0:
                     this_level_box_outside_weight[this_level_label == 1, :] = 1.0 / num_examples
                     this_level_box_outside_weight[this_level_label == 0, :] = 1.0 / num_examples
-
 
                 # reshape as blob shape
                 field_stride = 2.**lvl
@@ -442,7 +454,11 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                 blobs['adarpn_bbox_delta_wide_fpn' + str(lvl)].append(this_level_box_delta)
                 blobs['adarpn_bbox_inside_weights_wide_fpn' + str(lvl)].append(this_level_box_inside_weight)
                 blobs['adarpn_bbox_outside_weights_wide_fpn' + str(lvl)].append(this_level_box_outside_weight)
-                        
+            print(entry['image'])
+            print('-------------------------------' + str(target_sum))
+
+
+                
     for k, v in blobs.items():
         if isinstance(v, list) and len(v) > 0:
             blobs[k] = np.concatenate(v)
@@ -461,12 +477,18 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
     # Always return valid=True, since RPN minibatches are valid by design
     return True
 
-def ap_inside_gt(gts, ap):
+def ap_inside_gt(gts, ap, norm):
     valid_gts = []
     for gt_idx in range(len(gts)):
         if ap[0] >= gts[gt_idx][0] and ap[0] <= gts[gt_idx][2] \
             and ap[1] >= gts[gt_idx][1] and ap[1] <= gts[gt_idx][3]:
-            valid_gts.append(gts[gt_idx])
+
+            # wheather the gt is fit for this lever. judge by the gts' area
+            gt = np.array(gts[gt_idx])
+            gt_area = (gt[2] - gt[0] + 1)*(gt[3] - gt[1] + 1)
+            gt_area = gt_area/(norm*norm*1.0)
+            if gt_area>0.25 and gt_area < 4.0:
+                valid_gts.append(gts[gt_idx])
     return valid_gts
 
 def find_best_box(ap, gt, norm=1.0):
