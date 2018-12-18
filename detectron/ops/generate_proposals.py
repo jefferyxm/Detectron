@@ -32,11 +32,12 @@ class GenerateProposalsOp(object):
     transformations to a set of regular boxes (called "anchors").
     """
 
-    def __init__(self, anchors, spatial_scale, train):
+    def __init__(self, anchors, spatial_scale, train, field_stride):
         self._anchors = anchors
         self._num_anchors = self._anchors.shape[0]
         self._feat_stride = 1. / spatial_scale
         self._train = train
+        self._field_stride = field_stride
 
     def forward(self, inputs, outputs):
         """See modeling.detector.GenerateProposals for inputs/outputs
@@ -73,7 +74,7 @@ class GenerateProposalsOp(object):
         # shift pointing to each grid location
         shifts = np.vstack((shift_x.ravel(), shift_y.ravel())).transpose()
 
-        center_x = (field_stride - 1) * 0.5
+        center_x = (self._field_stride - 1) * 0.5
         center_y = center_x
         anchor_points = shifts + [center_x, center_y]
 

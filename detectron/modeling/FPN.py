@@ -457,7 +457,8 @@ def add_fpn_rpn_outputs(model, blobs_in, dim_in, spatial_scales):
                 [adarpn_cls_probs_fpn, adarpn_bbox_wh_pred_fpn, adarpn_bbox_pred_fpn, 'im_info'],
                 ['rpn_rois_fpn' + slvl, 'rpn_roi_probs_fpn' + slvl],
                 anchors=lvl_anchors,
-                spatial_scale=sc
+                spatial_scale=sc,
+                field_stride=2.**lvl
             )
 
 
@@ -475,6 +476,14 @@ def add_fpn_rpn_losses(model):
         model.net.SpatialNarrowAs(
             ['adarpn_bbox_wh_wide_fpn' + slvl, 'adarpn_bbox_wh_pred_fpn' + slvl],
             'adarpn_bbox_wh_fpn' + slvl
+        )
+        model.net.SpatialNarrowAs(
+            ['adarpn_bbox_wh_inside_wide_fpn' + slvl, 'adarpn_bbox_wh_pred_fpn' + slvl],
+            'adarpn_bbox_wh_inside_fpn' + slvl
+        )
+        model.net.SpatialNarrowAs(
+            ['adarpn_bbox_wh_outside_wide_fpn' + slvl, 'adarpn_bbox_wh_pred_fpn' + slvl],
+            'adarpn_bbox_wh_outside_fpn' + slvl
         )
         for key in ('delta', 'inside_weights', 'outside_weights'):
             model.net.SpatialNarrowAs(
@@ -505,8 +514,8 @@ def add_fpn_rpn_losses(model):
         loss_adarpn_bbox_wh_fpn = model.net.SmoothL1Loss(
             [
                 'adarpn_bbox_wh_pred_fpn' + slvl, 'adarpn_bbox_wh_fpn' + slvl,
-                'adarpn_bbox_inside_weights_fpn' + slvl,
-                'adarpn_bbox_outside_weights_fpn' + slvl
+                'adarpn_bbox_wh_inside_fpn' + slvl,
+                'adarpn_bbox_wh_outside_fpn' + slvl
             ],
             'loss_adarpn_bbox_wh_fpn' + slvl,
             beta=1. / 9.,

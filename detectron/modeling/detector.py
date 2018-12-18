@@ -104,7 +104,7 @@ class DetectionModelHelper(cnn.CNNModelHelper):
         else:
             return self.net.AffineChannel([blob_in, scale, bias], blob_out)
 
-    def GenerateProposals(self, blobs_in, blobs_out, anchors, spatial_scale):
+    def GenerateProposals(self, blobs_in, blobs_out, anchors, spatial_scale, field_stride):
         """Op for generating RPN porposals.
 
         blobs_in:
@@ -133,7 +133,7 @@ class DetectionModelHelper(cnn.CNNModelHelper):
         name = 'GenerateProposalsOp:' + ','.join([str(b) for b in blobs_in])
         # spatial_scale passed to the Python op is only used in convert_pkl_to_pb
         self.net.Python(
-            GenerateProposalsOp(anchors, spatial_scale, self.train).forward
+            GenerateProposalsOp(anchors, spatial_scale, self.train, field_stride).forward
         )(blobs_in, blobs_out, name=name, spatial_scale=spatial_scale)
         return blobs_out
 

@@ -52,6 +52,8 @@ def get_rpn_blob_names(is_training=True):
                 blob_names += [
                     'adarpn_labels_int32_wide_fpn' + str(lvl),
                     'adarpn_bbox_wh_wide_fpn' + str(lvl),
+                    'adarpn_bbox_wh_inside_wide_fpn' + str(lvl),
+                    'adarpn_bbox_wh_outside_wide_fpn' + str(lvl),
                     'adarpn_bbox_delta_wide_fpn' + str(lvl),
                     'adarpn_bbox_inside_weights_wide_fpn' + str(lvl),
                     'adarpn_bbox_outside_weights_wide_fpn' + str(lvl)
@@ -350,7 +352,7 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                     
                     for ap_idx in range(len(this_level_ap)):
                         # anchor points inside gts
-                        valid_gts = ap_inside_gt(gt_rois, this_level_ap[ap_idx], anchor_size[0]*1.0) 
+                        valid_gts = ap_inside_gt(gt_rois, this_level_ap[ap_idx], anchor_size[0]*1.0, lvl, k_min) 
                         
                         if(len(valid_gts)>0):
 
@@ -385,20 +387,10 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                                 targets_dw = np.log(gt_width / ex_width)
                                 targets_dh = np.log(gt_height / ex_height)
 
-                                this_level_box_delta[ap_idx, :] = np.array([targets_dx, targets_dy, targets_dw, targets_dh])
-
-                                # print(this_level_ap[ap_idx])
-                                # print(scores[0])
-                                # print([gt_ctr_x, gt_ctr_y])
-                                # print([ex_width, ex_height])
-                                # print(gt_box)
-                                # print(this_level_box_delta[ap_idx,:])
-                                # input()
-                     
+                                this_level_box_delta[ap_idx, :] = np.array([targets_dx, targets_dy, targets_dw, targets_dh])                     
 
                 fg_idx = np.where(this_level_label==1)[0]
                 fg_num = len(fg_idx)
-
 
                 # compute bg labels
                 bg_inds = np.where(this_level_label==-1)[0]
@@ -420,10 +412,15 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                 bg_idx = np.where(this_level_label==0)[0]
                 bg_num = len(bg_idx)
 
+                this_level_wh_inside_weight = np.zeros((this_level_ap.shape[0], 2), dtype=np.float32)
+                this_level_wh_inside_weight[this_level_label == 1, :] = (1.0, 1.0)
+
                 this_level_box_inside_weight = np.zeros((this_level_ap.shape[0], 4), dtype=np.float32)
                 this_level_box_inside_weight[this_level_label == 1, :] = (1.0, 1.0, 1.0, 1.0)
 
+                this_level_wh_outside_weight = np.zeros((this_level_ap.shape[0], 2), dtype=np.float32)
                 this_level_box_outside_weight = np.zeros((this_level_ap.shape[0], 4), dtype=np.float32)
+                
                 # uniform weighting of examples (given non-uniform sampling)
                 num_examples = fg_num + bg_num
                 target_sum = fg_num + target_sum
@@ -433,6 +430,8 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                 if num_examples > 0:
                     this_level_box_outside_weight[this_level_label == 1, :] = 1.0 / num_examples
                     this_level_box_outside_weight[this_level_label == 0, :] = 1.0 / num_examples
+                    this_level_wh_outside_weight[this_level_label == 1, :] = 1.0 / num_examples
+                    this_level_wh_outside_weight[this_level_label == 0, :] = 1.0 / num_examples
 
                 # reshape as blob shape
                 field_stride = 2.**lvl
@@ -444,6 +443,9 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
 
                 this_level_label= this_level_label.reshape((1, H, W, 1)).transpose(0,3,1,2)
                 this_level_wh = this_level_wh.reshape((1, H, W, 2)).transpose(0,3,1,2)
+                this_level_wh_inside_weight = this_level_wh_inside_weight.reshape((1, H, W, 2)).transpose(0,3,1,2)
+                this_level_wh_outside_weight = this_level_wh_outside_weight.reshape((1, H, W, 2)).transpose(0,3,1,2)
+
                 this_level_box_delta= this_level_box_delta.reshape((1, H, W, 4)).transpose(0,3,1,2)
                 this_level_box_inside_weight= this_level_box_inside_weight.reshape((1, H, W, 4)).transpose(0,3,1,2)
                 this_level_box_outside_weight= this_level_box_outside_weight.reshape((1, H, W, 4)).transpose(0,3,1,2)
@@ -451,13 +453,50 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                 # add into blobs
                 blobs['adarpn_labels_int32_wide_fpn' + str(lvl)].append(this_level_label)
                 blobs['adarpn_bbox_wh_wide_fpn' + str(lvl)].append(this_level_wh)
+                blobs['adarpn_bbox_wh_inside_wide_fpn' + str(lvl)].append(this_level_wh_inside_weight)
+                blobs['adarpn_bbox_wh_outside_wide_fpn' + str(lvl)].append(this_level_wh_outside_weight)
+
                 blobs['adarpn_bbox_delta_wide_fpn' + str(lvl)].append(this_level_box_delta)
                 blobs['adarpn_bbox_inside_weights_wide_fpn' + str(lvl)].append(this_level_box_inside_weight)
                 blobs['adarpn_bbox_outside_weights_wide_fpn' + str(lvl)].append(this_level_box_outside_weight)
-            print(entry['image'])
-            print('-------------------------------' + str(target_sum))
 
 
+                '''
+                # show label in image
+                import matplotlib.pyplot as plt
+                import cv2
+                print(entry['image'])
+                print('-------------------------------' + str(fg_num))
+                print('-------------------------------' + str(scale))
+                im = cv2.imread(entry['image'])
+                im = cv2.resize(im, (0,0), fx=scale, fy=scale)
+                
+                im_plt = im[:,:,(2,1,0)]
+                plt.cla()
+                plt.imshow(im_plt)
+                this_level_label = this_level_label.reshape((W*H,))
+                this_level_wh = this_level_wh.transpose(0,2,3,1).reshape(W*H, 2)
+
+                tg_index = np.where(this_level_label==1)[0]
+
+                
+                # for tg in tg_index:
+                if tg_index.shape[0] > 0:
+                    tg = tg_index[0]
+                
+                    w = this_level_wh[tg][0]*anchor_size[0]
+                    h = this_level_wh[tg][1]*anchor_size[0]
+                    p1 = [(this_level_ap[tg][0] - 0.5*w), 
+                            (this_level_ap[tg][1])- 0.5*h]
+                    plt.gca().add_patch(plt.Rectangle((p1[0], p1[1]), w, h ,fill=False, edgecolor='r', linewidth=1))
+
+                for gt in gt_rois:
+                    plt.gca().add_patch(plt.Rectangle((gt[0], gt[1]), gt[2]-gt[0], gt[3]-gt[1] ,fill=False, edgecolor='g', linewidth=1))
+
+                plt.show()
+
+                '''
+    
                 
     for k, v in blobs.items():
         if isinstance(v, list) and len(v) > 0:
@@ -477,7 +516,7 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
     # Always return valid=True, since RPN minibatches are valid by design
     return True
 
-def ap_inside_gt(gts, ap, norm):
+def ap_inside_gt(gts, ap, norm, lvl, k_min):
     valid_gts = []
     for gt_idx in range(len(gts)):
         if ap[0] >= gts[gt_idx][0] and ap[0] <= gts[gt_idx][2] \
@@ -487,8 +526,13 @@ def ap_inside_gt(gts, ap, norm):
             gt = np.array(gts[gt_idx])
             gt_area = (gt[2] - gt[0] + 1)*(gt[3] - gt[1] + 1)
             gt_area = gt_area/(norm*norm*1.0)
-            if gt_area>0.25 and gt_area < 4.0:
-                valid_gts.append(gts[gt_idx])
+
+            if lvl == k_min:
+                if gt_area < 4.0:
+                    valid_gts.append(gts[gt_idx])
+            else:
+                if gt_area>0.25 and gt_area < 4.0:
+                    valid_gts.append(gts[gt_idx])      
     return valid_gts
 
 def find_best_box(ap, gt, norm=1.0):
