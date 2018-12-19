@@ -347,155 +347,282 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                 this_level_label.fill(-1)
                 this_level_wh = np.zeros((this_level_ap.shape[0], 2), dtype=np.float32)
                 this_level_box_delta = np.zeros((this_level_ap.shape[0], 4), dtype=np.float32)
-                
+
                 if len(gt_rois) > 0:
-                    
-                    for ap_idx in range(len(this_level_ap)):
-                        # anchor points inside gts
-                        valid_gts = ap_inside_gt(gt_rois, this_level_ap[ap_idx], anchor_size[0]*1.0, lvl, k_min) 
+
+                    ''' compute with vector to speed up'''
+                    # filter suitable gts for this fpn level
+                    norm = anchor_size[0]*1.0
+                    gt_areas = (gt_rois[:, 2] - gt_rois[:, 0] + 1)*(gt_rois[:, 3]-gt_rois[:, 1] + 1)/(norm*norm)
+                    if lvl == k_min:
+                        valid_gtidx = np.where(gt_areas <= 4.0)[0]
+                    else:
+                        valid_gtidx = np.where((gt_areas <= 4.0) & (gt_areas >= 0.25))[0]
+                    valid_gts = gt_rois[valid_gtidx, :]
+
+                    # find all aps inside the gts
+                    valid_apidx = np.empty(0, dtype=np.int32)
+                    for gt in valid_gts:
+                        idx = np.where( (this_level_ap[:,0] > gt[0]) & (this_level_ap[:,0] < gt[2])
+                                            & (this_level_ap[:,1] > gt[1]) & (this_level_ap[:,1] < gt[3]) )[0]
+                        valid_apidx = np.append(valid_apidx, idx)
+                    valid_apidx = np.unique(valid_apidx)
+                    valid_aps = this_level_ap[valid_apidx]
+
+                    m =valid_aps.shape[0]
+                    n =valid_gts.shape[0]
+
+                    # points transformation -- 
+                    # 1 transform all points to left-up side of the gt boxes and 
+                    # 2 set points outside the boxes to the left-up corner
+                    transfm_aps = np.zeros((2,m,n), dtype=np.float32)
+                    tmp_aps = np.empty(valid_aps.shape, dtype=np.float32)
+                    for idx, gt in enumerate(valid_gts):
+                        tmp_aps[:] = valid_aps
+                        # 1
+                        gtcx = 0.5*(gt[0] + gt[2] + 1)
+                        gtcy = 0.5*(gt[1] + gt[3] + 1)
+                        tmp_aps[np.where( ( gtcx - tmp_aps[:,0]) < 0 )[0], 0] \
+                                    = 2*gtcx - tmp_aps[ np.where( ( gtcx - tmp_aps[:,0]) < 0 )[0], 0]
+                        tmp_aps[np.where( ( gtcy - tmp_aps[:,1]) < 0 )[0], 1] \
+                                    = 2*gtcy - tmp_aps[ np.where( ( gtcy - tmp_aps[:,1]) < 0 )[0], 1]
                         
-                        if(len(valid_gts)>0):
+                        # 2 add a small value to prevent D & C to be zero 
+                        tmp_aps[np.where( (tmp_aps[:,0] <= gt[0]) | (tmp_aps[:,1] <= gt[1]) )[0] ] = gt[0:2] + 0.001
+                        transfm_aps[:, :, idx] = tmp_aps.transpose(1,0)
+                    
+                    print('------------------------')
+                    print(entry['image'])
+                    print (transfm_aps.shape)
 
-                            scores, whs = find_best_box(this_level_ap[ap_idx], valid_gts, anchor_size[0]*1.0)
-
-                            # print(whs)
-                            areas = whs[:,0]*whs[:,1]
-                            valid_idx = np.where( (areas> 0.25)  & (areas< 4)  &
-                                 (scores >= cfg.TRAIN.RPN_POSITIVE_OVERLAP))[0]
-                            if(valid_idx.shape[0]>0):
-                                scores = scores[valid_idx]
-                                whs = whs[valid_idx,:]
-                                # fg_labels
-                                this_level_label[ap_idx] = 1
-                                # generally, when you set ROI overlap to 0.7 or much higher, for one anchor point only match one gt 
-                                # box. so it will be ok to use the first box
-                                this_level_wh[ap_idx] = whs[0]
-
-                                # compute bbox_delata_target
-                                gt_box = gt_rois[valid_idx[0]]
-
-                                gt_width = gt_box[2] - gt_box[0] + 1.0
-                                gt_height = gt_box[3] - gt_box[1] + 1.0
-                                gt_ctr_x = gt_box[0] + 0.5 * gt_width
-                                gt_ctr_y = gt_box[1] + 0.5 * gt_height
-
-                                ex_width = whs[0][0] * anchor_size[0]
-                                ex_height = whs[0][1] * anchor_size[0]
-
-                                targets_dx = (gt_ctr_x - this_level_ap[ap_idx][0]) / ex_width
-                                targets_dy = (gt_ctr_y - this_level_ap[ap_idx][1]) / ex_height
-                                targets_dw = np.log(gt_width / ex_width)
-                                targets_dh = np.log(gt_height / ex_height)
-
-                                this_level_box_delta[ap_idx, :] = np.array([targets_dx, targets_dy, targets_dw, targets_dh])                     
-
-                fg_idx = np.where(this_level_label==1)[0]
-                fg_num = len(fg_idx)
-
-                # compute bg labels
-                bg_inds = np.where(this_level_label==-1)[0]
-                if len(bg_inds) > fg_num:
-                    # need to filter some bg, so selecet labels a little more
-                    enable_inds = bg_inds[npr.randint(len(bg_inds), size=(int(fg_num*1.2)))]
-                    # filter out high IOU bg
-                    keep=[]
-                    for idx in range(len(enable_inds)):
-                        iou, bg_whs = find_best_box(this_level_ap[enable_inds[idx]], gt_rois, anchor_size[0]*1.0)
-                        bg_areas = bg_whs[:,0]*bg_whs[:,1]
-                        bg_valid_idx = np.where( (bg_areas<0.2) | (bg_areas > 5) | (iou <= cfg.TRAIN.RPN_NEGATIVE_OVERLAP) )[0]
-                        if bg_valid_idx.shape[0] == len(gt_rois):
-                            keep.append(enable_inds[idx])
-                    this_level_label[enable_inds] = 0
-                else:
-                    this_level_label[bg_inds] = 0
-
-                bg_idx = np.where(this_level_label==0)[0]
-                bg_num = len(bg_idx)
-
-                this_level_wh_inside_weight = np.zeros((this_level_ap.shape[0], 2), dtype=np.float32)
-                this_level_wh_inside_weight[this_level_label == 1, :] = (1.0, 1.0)
-
-                this_level_box_inside_weight = np.zeros((this_level_ap.shape[0], 4), dtype=np.float32)
-                this_level_box_inside_weight[this_level_label == 1, :] = (1.0, 1.0, 1.0, 1.0)
-
-                this_level_wh_outside_weight = np.zeros((this_level_ap.shape[0], 2), dtype=np.float32)
-                this_level_box_outside_weight = np.zeros((this_level_ap.shape[0], 4), dtype=np.float32)
+                    A = np.zeros((m, n), dtype = np.float32)
                 
-                # uniform weighting of examples (given non-uniform sampling)
-                num_examples = fg_num + bg_num
-                target_sum = fg_num + target_sum
+                    A[:] = (valid_gts[:,2] - valid_gts[:, 0] + 1)*(valid_gts[:,3] - valid_gts[:, 1] + 1)
+                    C = ( transfm_aps[0] - (np.tile(valid_gts[:,0], [m, 1])) ) * 0.5
+                    D = ( transfm_aps[1] - (np.tile(valid_gts[:,1], [m, 1])) ) * 0.5
+                    B = 4*C*D
 
-                # print(fg_num)
+                    CANDW = np.zeros((4, m, n), dtype = np.float32)
+                    CANDH = np.zeros((4, m, n), dtype = np.float32)
+                    CANDW[0:2, :, :] = [4*C,  2*(1 + np.tile(valid_gts[:, 2], [m, 1]) - transfm_aps[0] ) ]
+                    CANDH[0:2, :, :] = [4*D,  2*(1 + np.tile(valid_gts[:, 3], [m, 1]) - transfm_aps[1] ) ]
+
+
+                    sqdelta = np.sqrt(np.power((A-4*B),2) + 64*A*C*D)
+                    a1 = ((A-4*B) + sqdelta)
+                    a2 = ((A-4*B) - sqdelta)
+
+                    w1 = a1/(8*D)
+                    w1[np.where( (w1-CANDW[0,:,:] < 0) | (w1 - CANDW[1,:,:] > 0) )[0]] = 0
+                    w2 = a2/(8*D)
+                    w2[np.where( (w2-CANDW[0,:,:] < 0) | (w2 - CANDW[1,:,:] > 0) )[0]] = 0
+
+                    h1 = a1/(8*C)
+                    h1[np.where( (h1 - CANDH[0,:,:] < 0) | (h1 - CANDH[1,:,:] > 0) )[0]] = 0
+                    h2 = a2/(8*C)
+                    h2[np.where( (h2 - CANDH[0,:,:] < 0) | (h2 - CANDH[1,:,:] > 0) )[0]] = 0
+
+                    CANDW[2:4,:,:] = [w1, w2]
+                    CANDH[2:4,:,:] = [h1, h2]
+
+                    CANDWS = np.tile(CANDW, [4,1,1])
+                    CANDHS = np.repeat(CANDH, 4, axis = 0)
+                    IOUS = (B+ C*CANDHS + D*CANDWS + 0.25*CANDWS*CANDHS)/(A-(B + C*CANDHS + D*CANDWS) + 0.75*CANDWS*CANDHS)
+                    IOUS[ np.where( (CANDWS==0) | (CANDHS==0) ) ] = 0
+                    IOU = np.max(IOUS, axis=0)
+                    WHidx = np.argmax(IOUS, axis=0)
+
+                    enable_idx = np.where(IOU>=0.7)
+
+                    # print(IOU)
+                    # print(WHidx)
+                    # print(enable_idx)
+                    # input()
+
+                    this_level_label[ valid_apidx[enable_idx[0]] ] = 1
+                    this_level_wh[ valid_apidx[enable_idx[0]], 0 ] = \
+                            CANDWS[ WHidx[enable_idx[0], enable_idx[1]], enable_idx[0], enable_idx[1] ]/norm
+                    this_level_wh[ valid_apidx[enable_idx[0]], 1 ] = \
+                            CANDHS[ WHidx[enable_idx[0], enable_idx[1]], enable_idx[0], enable_idx[1] ]/norm
+
+
+                    # show label in image
+                    import matplotlib.pyplot as plt
+                    import cv2
+                    im = cv2.imread(entry['image'])
+                    im = cv2.resize(im, (0,0), fx=scale, fy=scale)
+                    
+                    im_plt = im[:,:,(2,1,0)]
+                    plt.cla()
+                    plt.imshow(im_plt)
+
+                    tg_index = np.where(this_level_label==1)[0]
+                    # print(tg_index)
+                    print(len(tg_index))
+
+                    for tg in tg_index:
+                        w = this_level_wh[tg][0]*anchor_size[0]
+                        h = this_level_wh[tg][1]*anchor_size[0]
+                        p1 = [(this_level_ap[tg][0] - 0.5*w), 
+                                (this_level_ap[tg][1])- 0.5*h]
+                        plt.gca().add_patch(plt.Rectangle((p1[0], p1[1]), w, h ,fill=False, edgecolor='r', linewidth=1))
+
+                    for gt in valid_gts:
+                        plt.gca().add_patch(plt.Rectangle((gt[0], gt[1]), gt[2]-gt[0], gt[3]-gt[1] ,fill=False, edgecolor='g', linewidth=1))
+
+                    plt.show()
+
+
+                    '''-----'''
+
+
+                    '''---'''
+                #     for ap_idx in range(len(this_level_ap)):
+                #         # anchor points inside gts
+                #         valid_gts = ap_inside_gt(gt_rois, this_level_ap[ap_idx], anchor_size[0]*1.0, lvl, k_min) 
+                        
+                #         if(len(valid_gts)>0):
+
+                #             scores, whs = find_best_box(this_level_ap[ap_idx], valid_gts, anchor_size[0]*1.0)
+
+                #             # print(whs)
+                #             areas = whs[:,0]*whs[:,1]
+                #             valid_idx = np.where( (areas> 0.25)  & (areas< 4)  &
+                #                  (scores >= cfg.TRAIN.RPN_POSITIVE_OVERLAP))[0]
+                #             if(valid_idx.shape[0]>0):
+                #                 scores = scores[valid_idx]
+                #                 whs = whs[valid_idx,:]
+                #                 # fg_labels
+                #                 this_level_label[ap_idx] = 1
+                #                 # generally, when you set ROI overlap to 0.7 or much higher, for one anchor point only match one gt 
+                #                 # box. so it will be ok to use the first box
+                #                 this_level_wh[ap_idx] = whs[0]
+
+                #                 # compute bbox_delata_target
+                #                 gt_box = gt_rois[valid_idx[0]]
+
+                #                 gt_width = gt_box[2] - gt_box[0] + 1.0
+                #                 gt_height = gt_box[3] - gt_box[1] + 1.0
+                #                 gt_ctr_x = gt_box[0] + 0.5 * gt_width
+                #                 gt_ctr_y = gt_box[1] + 0.5 * gt_height
+
+                #                 ex_width = whs[0][0] * anchor_size[0]
+                #                 ex_height = whs[0][1] * anchor_size[0]
+
+                #                 targets_dx = (gt_ctr_x - this_level_ap[ap_idx][0]) / ex_width
+                #                 targets_dy = (gt_ctr_y - this_level_ap[ap_idx][1]) / ex_height
+                #                 targets_dw = np.log(gt_width / ex_width)
+                #                 targets_dh = np.log(gt_height / ex_height)
+
+                #                 this_level_box_delta[ap_idx, :] = np.array([targets_dx, targets_dy, targets_dw, targets_dh])                     
+
+                # fg_idx = np.where(this_level_label==1)[0]
+                # fg_num = len(fg_idx)
+
+                # # compute bg labels
+                # bg_inds = np.where(this_level_label==-1)[0]
+                # if len(bg_inds) > fg_num:
+                #     # need to filter some bg, so selecet labels a little more
+                #     enable_inds = bg_inds[npr.randint(len(bg_inds), size=(int(fg_num*1.2)))]
+                #     # filter out high IOU bg
+                #     keep=[]
+                #     for idx in range(len(enable_inds)):
+                #         iou, bg_whs = find_best_box(this_level_ap[enable_inds[idx]], gt_rois, anchor_size[0]*1.0)
+                #         bg_areas = bg_whs[:,0]*bg_whs[:,1]
+                #         bg_valid_idx = np.where( (bg_areas<0.2) | (bg_areas > 5) | (iou <= cfg.TRAIN.RPN_NEGATIVE_OVERLAP) )[0]
+                #         if bg_valid_idx.shape[0] == len(gt_rois):
+                #             keep.append(enable_inds[idx])
+                #     this_level_label[enable_inds] = 0
+                # else:
+                #     this_level_label[bg_inds] = 0
+
+                # bg_idx = np.where(this_level_label==0)[0]
+                # bg_num = len(bg_idx)
+
+                # this_level_wh_inside_weight = np.zeros((this_level_ap.shape[0], 2), dtype=np.float32)
+                # this_level_wh_inside_weight[this_level_label == 1, :] = (1.0, 1.0)
+
+                # this_level_box_inside_weight = np.zeros((this_level_ap.shape[0], 4), dtype=np.float32)
+                # this_level_box_inside_weight[this_level_label == 1, :] = (1.0, 1.0, 1.0, 1.0)
+
+                # this_level_wh_outside_weight = np.zeros((this_level_ap.shape[0], 2), dtype=np.float32)
+                # this_level_box_outside_weight = np.zeros((this_level_ap.shape[0], 4), dtype=np.float32)
                 
-                if num_examples > 0:
-                    this_level_box_outside_weight[this_level_label == 1, :] = 1.0 / num_examples
-                    this_level_box_outside_weight[this_level_label == 0, :] = 1.0 / num_examples
-                    this_level_wh_outside_weight[this_level_label == 1, :] = 1.0 / num_examples
-                    this_level_wh_outside_weight[this_level_label == 0, :] = 1.0 / num_examples
+                # # uniform weighting of examples (given non-uniform sampling)
+                # num_examples = fg_num + bg_num
+                # target_sum = fg_num + target_sum
 
-                # reshape as blob shape
-                field_stride = 2.**lvl
-                fpn_max_size = cfg.FPN.COARSEST_STRIDE * np.ceil(
-                    cfg.TRAIN.MAX_SIZE / float(cfg.FPN.COARSEST_STRIDE))
-                field_size = int(np.ceil(fpn_max_size / float(field_stride)))
-                H = field_size
-                W = field_size
-
-                this_level_label= this_level_label.reshape((1, H, W, 1)).transpose(0,3,1,2)
-                this_level_wh = this_level_wh.reshape((1, H, W, 2)).transpose(0,3,1,2)
-                this_level_wh_inside_weight = this_level_wh_inside_weight.reshape((1, H, W, 2)).transpose(0,3,1,2)
-                this_level_wh_outside_weight = this_level_wh_outside_weight.reshape((1, H, W, 2)).transpose(0,3,1,2)
-
-                this_level_box_delta= this_level_box_delta.reshape((1, H, W, 4)).transpose(0,3,1,2)
-                this_level_box_inside_weight= this_level_box_inside_weight.reshape((1, H, W, 4)).transpose(0,3,1,2)
-                this_level_box_outside_weight= this_level_box_outside_weight.reshape((1, H, W, 4)).transpose(0,3,1,2)
+                # # print(fg_num)
                 
-                # add into blobs
-                blobs['adarpn_labels_int32_wide_fpn' + str(lvl)].append(this_level_label)
-                blobs['adarpn_bbox_wh_wide_fpn' + str(lvl)].append(this_level_wh)
-                blobs['adarpn_bbox_wh_inside_wide_fpn' + str(lvl)].append(this_level_wh_inside_weight)
-                blobs['adarpn_bbox_wh_outside_wide_fpn' + str(lvl)].append(this_level_wh_outside_weight)
+                # if num_examples > 0:
+                #     this_level_box_outside_weight[this_level_label == 1, :] = 1.0 / num_examples
+                #     this_level_box_outside_weight[this_level_label == 0, :] = 1.0 / num_examples
+                #     this_level_wh_outside_weight[this_level_label == 1, :] = 1.0 / num_examples
+                #     this_level_wh_outside_weight[this_level_label == 0, :] = 1.0 / num_examples
 
-                blobs['adarpn_bbox_delta_wide_fpn' + str(lvl)].append(this_level_box_delta)
-                blobs['adarpn_bbox_inside_weights_wide_fpn' + str(lvl)].append(this_level_box_inside_weight)
-                blobs['adarpn_bbox_outside_weights_wide_fpn' + str(lvl)].append(this_level_box_outside_weight)
+                # # reshape as blob shape
+                # field_stride = 2.**lvl
+                # fpn_max_size = cfg.FPN.COARSEST_STRIDE * np.ceil(
+                #     cfg.TRAIN.MAX_SIZE / float(cfg.FPN.COARSEST_STRIDE))
+                # field_size = int(np.ceil(fpn_max_size / float(field_stride)))
+                # H = field_size
+                # W = field_size
 
+                # this_level_label= this_level_label.reshape((1, H, W, 1)).transpose(0,3,1,2)
+                # this_level_wh = this_level_wh.reshape((1, H, W, 2)).transpose(0,3,1,2)
+                # this_level_wh_inside_weight = this_level_wh_inside_weight.reshape((1, H, W, 2)).transpose(0,3,1,2)
+                # this_level_wh_outside_weight = this_level_wh_outside_weight.reshape((1, H, W, 2)).transpose(0,3,1,2)
 
-                '''
-                # show label in image
-                import matplotlib.pyplot as plt
-                import cv2
-                print(entry['image'])
-                print('-------------------------------' + str(fg_num))
-                print('-------------------------------' + str(scale))
-                im = cv2.imread(entry['image'])
-                im = cv2.resize(im, (0,0), fx=scale, fy=scale)
+                # this_level_box_delta= this_level_box_delta.reshape((1, H, W, 4)).transpose(0,3,1,2)
+                # this_level_box_inside_weight= this_level_box_inside_weight.reshape((1, H, W, 4)).transpose(0,3,1,2)
+                # this_level_box_outside_weight= this_level_box_outside_weight.reshape((1, H, W, 4)).transpose(0,3,1,2)
                 
-                im_plt = im[:,:,(2,1,0)]
-                plt.cla()
-                plt.imshow(im_plt)
-                this_level_label = this_level_label.reshape((W*H,))
-                this_level_wh = this_level_wh.transpose(0,2,3,1).reshape(W*H, 2)
+                # # add into blobs
+                # blobs['adarpn_labels_int32_wide_fpn' + str(lvl)].append(this_level_label)
+                # blobs['adarpn_bbox_wh_wide_fpn' + str(lvl)].append(this_level_wh)
+                # blobs['adarpn_bbox_wh_inside_wide_fpn' + str(lvl)].append(this_level_wh_inside_weight)
+                # blobs['adarpn_bbox_wh_outside_wide_fpn' + str(lvl)].append(this_level_wh_outside_weight)
 
-                tg_index = np.where(this_level_label==1)[0]
+                # blobs['adarpn_bbox_delta_wide_fpn' + str(lvl)].append(this_level_box_delta)
+                # blobs['adarpn_bbox_inside_weights_wide_fpn' + str(lvl)].append(this_level_box_inside_weight)
+                # blobs['adarpn_bbox_outside_weights_wide_fpn' + str(lvl)].append(this_level_box_outside_weight)
+
+
+                # # '''
+                # # show label in image
+                # import matplotlib.pyplot as plt
+                # import cv2
+                # print(entry['image'])
+                # print('-------------------------------' + str(fg_num))
+                # print('-------------------------------' + str(scale))
+                # im = cv2.imread(entry['image'])
+                # im = cv2.resize(im, (0,0), fx=scale, fy=scale)
+                
+                # im_plt = im[:,:,(2,1,0)]
+                # plt.cla()
+                # plt.imshow(im_plt)
+                # this_level_label = this_level_label.reshape((W*H,))
+                # this_level_wh = this_level_wh.transpose(0,2,3,1).reshape(W*H, 2)
+
+                # tg_index = np.where(this_level_label==1)[0]
 
                 
                 # for tg in tg_index:
-                if tg_index.shape[0] > 0:
-                    tg = tg_index[0]
+                # # if tg_index.shape[0] > 0:
+                #     # tg = tg_index[0]
                 
-                    w = this_level_wh[tg][0]*anchor_size[0]
-                    h = this_level_wh[tg][1]*anchor_size[0]
-                    p1 = [(this_level_ap[tg][0] - 0.5*w), 
-                            (this_level_ap[tg][1])- 0.5*h]
-                    plt.gca().add_patch(plt.Rectangle((p1[0], p1[1]), w, h ,fill=False, edgecolor='r', linewidth=1))
+                #     w = this_level_wh[tg][0]*anchor_size[0]
+                #     h = this_level_wh[tg][1]*anchor_size[0]
+                #     p1 = [(this_level_ap[tg][0] - 0.5*w), 
+                #             (this_level_ap[tg][1])- 0.5*h]
+                #     plt.gca().add_patch(plt.Rectangle((p1[0], p1[1]), w, h ,fill=False, edgecolor='r', linewidth=1))
 
-                for gt in gt_rois:
-                    plt.gca().add_patch(plt.Rectangle((gt[0], gt[1]), gt[2]-gt[0], gt[3]-gt[1] ,fill=False, edgecolor='g', linewidth=1))
+                # for gt in gt_rois:
+                #     plt.gca().add_patch(plt.Rectangle((gt[0], gt[1]), gt[2]-gt[0], gt[3]-gt[1] ,fill=False, edgecolor='g', linewidth=1))
 
-                plt.show()
+                # plt.show()
 
-                '''
+                # '''
     
                 
     for k, v in blobs.items():
