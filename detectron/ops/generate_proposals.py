@@ -32,12 +32,13 @@ class GenerateProposalsOp(object):
     transformations to a set of regular boxes (called "anchors").
     """
 
-    def __init__(self, anchors, spatial_scale, train, field_stride):
+    def __init__(self, anchors, spatial_scale, train, ap_size):
         self._anchors = anchors
         self._num_anchors = self._anchors.shape[0]
         self._feat_stride = 1. / spatial_scale
         self._train = train
-        self._field_stride = field_stride
+        self.ap_size = ap_size
+
 
     def forward(self, inputs, outputs):
         """See modeling.detector.GenerateProposals for inputs/outputs
@@ -66,6 +67,7 @@ class GenerateProposalsOp(object):
         im_info = inputs[3].data
         # 1. Generate proposals from bbox deltas and shifted anchors
         height, width = scores.shape[-2:]
+
         # Enumerate all shifted positions on the (H, W) grid
         shift_x = np.arange(0, width) * self._feat_stride
         shift_y = np.arange(0, height) * self._feat_stride
@@ -74,7 +76,7 @@ class GenerateProposalsOp(object):
         # shift pointing to each grid location
         shifts = np.vstack((shift_x.ravel(), shift_y.ravel())).transpose()
 
-        center_x = (self._field_stride - 1) * 0.5
+        center_x = (self._feat_stride - 1) * 0.5
         center_y = center_x
         anchor_points = shifts + [center_x, center_y]
 
@@ -96,7 +98,7 @@ class GenerateProposalsOp(object):
         for im_i in range(num_images):
             im_i_boxes, im_i_probs = self.proposals_for_one_image(
                 im_info[im_i, :], anchor_points, bbox_whs[im_i, :, :, :], bbox_deltas[im_i, :, :, :],
-                scores[im_i, :, :, :]
+                scores[im_i, :, :, :], norm = self.ap_size
             )
             batch_inds = im_i * np.ones(
                 (im_i_boxes.shape[0], 1), dtype=np.float32
@@ -112,7 +114,7 @@ class GenerateProposalsOp(object):
             outputs[1].data[...] = roi_probs
 
     def proposals_for_one_image(
-        self, im_info, anchor_points, bbox_whs, bbox_deltas, scores
+        self, im_info, anchor_points, bbox_whs, bbox_deltas, scores, norm
     ):
         # Get mode-dependent configuration
         cfg_key = 'TRAIN' if self._train else 'TEST'
@@ -149,11 +151,19 @@ class GenerateProposalsOp(object):
             )[:pre_nms_topN]
             order = np.argsort(-scores[inds].squeeze())
             order = inds[order]
+
         # keep the top k candidates
         bbox_deltas = bbox_deltas[order, :]
         bbox_whs = bbox_whs[order, :]
         anchor_points = anchor_points[order, :]
         scores = scores[order]
+
+        # whs may be less than zero, filter them out
+        valid_index = np.where( (bbox_whs[:,0])>0 & (bbox_whs[:,1]>0) )[0]
+        bbox_deltas = bbox_deltas[valid_index, :]
+        bbox_whs = bbox_whs[valid_index, :] * norm
+        anchor_points = anchor_points[valid_index, :]
+        scores = scores[valid_index]
 
         # Transform anchors into proposals via bbox transformations
         proposals = box_utils.bbox_transform_anchor_point(

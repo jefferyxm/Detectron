@@ -458,7 +458,7 @@ def add_fpn_rpn_outputs(model, blobs_in, dim_in, spatial_scales):
                 ['rpn_rois_fpn' + slvl, 'rpn_roi_probs_fpn' + slvl],
                 anchors=lvl_anchors,
                 spatial_scale=sc,
-                field_stride=2.**lvl
+                ap_size=cfg.FPN.RPN_ANCHOR_START_SIZE * 2.**(lvl - k_min)
             )
 
 

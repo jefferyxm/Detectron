@@ -94,7 +94,6 @@ def im_detect_all(model, im, box_proposals, timers=None):
     scores, boxes, cls_boxes = box_results_with_nms_and_limit(scores, boxes)
     timers['misc_bbox'].toc()
 
-
     # import matplotlib.pyplot as plt
     # im_plt = im[:,:,(2,1,0)]
     # plt.cla()
@@ -105,8 +104,6 @@ def im_detect_all(model, im, box_proposals, timers=None):
     #                     fill=False, edgecolor='r', linewidth=1))
     # plt.show()
     # print('======')
-
-
 
     if cfg.MODEL.MASK_ON and boxes.shape[0] > 0:
         timers['im_detect_mask'].tic()
@@ -200,6 +197,67 @@ def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None):
     scores = workspace.FetchBlob(core.ScopedName('cls_prob')).squeeze()
     # In case there is 1 proposal
     scores = scores.reshape([-1, scores.shape[-1]])
+
+    # ------------------------------------------
+    # adarpn_cls_probs_fpn2
+    # adarpn_bbox_wh_pred_fpn2
+    # adarpn_bbox_pred_fpn2
+
+    # fpn2_output = workspace.FetchBlob(core.ScopedName('adarpn_cls_probs_fpn2')).squeeze()
+    # height, width = fpn2_output.shape[-2:]
+    # fpn2_output = fpn2_output.reshape((-1,1))
+    # valid_ap = np.where(fpn2_output > 0.1)[0]
+
+    # this_level_wh = workspace.FetchBlob(core.ScopedName('adarpn_bbox_wh_pred_fpn2')).squeeze()
+    # this_level_wh = this_level_wh.transpose((1, 2, 0)).reshape((-1, 2))
+
+    # field_stride = 4
+    
+    # print('-------------------------')
+    # print(width)
+    # print(height)
+
+    # # 1, got all anchor center points
+    # shift_x = np.arange(0, width) * field_stride
+    # shift_y = np.arange(0, height) * field_stride
+    # shift_x, shift_y = np.meshgrid(shift_x, shift_y)
+    # shift_x = shift_x.ravel()
+    # shift_y = shift_y.ravel()
+    # shifts = np.vstack((shift_x, shift_y)).transpose()
+
+    # center_x = (field_stride - 1) * 0.5
+    # center_y = center_x
+    # this_level_ap = shifts + [center_x, center_y]
+    
+    # DBG=1
+    # if DBG:
+    #     # show label in image
+    #     import matplotlib.pyplot as plt
+    #     import cv2
+    #     # im = cv2.imread(entry['image'])
+    #     im = cv2.resize(im, (0,0), fx=im_scale, fy=im_scale)
+        
+    #     im_plt = im[:,:,(2,1,0)]
+    #     plt.cla()
+    #     plt.imshow(im_plt)
+
+    #     tg_index = valid_ap
+    #     # print(len(tg_index))
+
+    #     for tg in tg_index:
+    #         w = this_level_wh[tg][0]*32
+    #         h = this_level_wh[tg][1]*32
+    #         p1 = [(this_level_ap[tg][0] - 0.5*w), 
+    #                 (this_level_ap[tg][1])- 0.5*h]
+    #         plt.gca().add_patch(plt.Rectangle((p1[0], p1[1]), w, h ,fill=False, edgecolor='r', linewidth=1))
+
+    #     # for gt in valid_gts:
+    #     #     plt.gca().add_patch(plt.Rectangle((gt[0], gt[1]), gt[2]-gt[0], gt[3]-gt[1] ,fill=False, edgecolor='g', linewidth=1))
+
+    #     plt.show()
+
+    # -----------------------------------
+
 
     if cfg.TEST.BBOX_REG:
         # Apply bounding-box regression deltas
