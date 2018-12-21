@@ -50,7 +50,7 @@ import detectron.utils.keypoints as keypoint_utils
 
 logger = logging.getLogger(__name__)
 
-
+cnt = 0
 def im_detect_all(model, im, box_proposals, timers=None):
     if timers is None:
         timers = defaultdict(Timer)
@@ -72,17 +72,21 @@ def im_detect_all(model, im, box_proposals, timers=None):
         )
     timers['im_detect_bbox'].toc()
 
+
     # import matplotlib.pyplot as plt
     # im_plt = im[:,:,(2,1,0)]
     # plt.cla()
+    # plt.subplot(1,2,1)
     # plt.imshow(im_plt)
+    # print(boxes.shape)
+
     # for i in range(boxes.shape[0]):
     #     # plt.gca().add_patch(plt.Rectangle((boxes[i][4], boxes[i][5] ), \
     #     #                 boxes[i][6] - boxes[i][4], boxes[i][7] - boxes[i][5], \
     #     #                 fill=False, edgecolor='r', linewidth=1))
     #     plt.gca().add_patch(plt.Circle((boxes[i][4], boxes[i][5]), 1, edgecolor='b', fill=True, linewidth=1))
     #     plt.gca().add_patch(plt.Circle((boxes[i][6], boxes[i][7]), 1, edgecolor='r', fill=True, linewidth=1))
-    # plt.show()
+    # # plt.show()
     # print('======')
 
 
@@ -94,14 +98,18 @@ def im_detect_all(model, im, box_proposals, timers=None):
     scores, boxes, cls_boxes = box_results_with_nms_and_limit(scores, boxes)
     timers['misc_bbox'].toc()
 
-    # import matplotlib.pyplot as plt
-    # im_plt = im[:,:,(2,1,0)]
-    # plt.cla()
+
+    # plt.subplot(1,2,2)
     # plt.imshow(im_plt)
     # for i in range(boxes.shape[0]):
     #     plt.gca().add_patch(plt.Rectangle((boxes[i][0], boxes[i][1] ), \
     #                     boxes[i][2] - boxes[i][0], boxes[i][3] - boxes[i][1], \
     #                     fill=False, edgecolor='r', linewidth=1))
+    # # global cnt
+    # # cnt = cnt + 1
+    # # if(cnt >20):
+    # print(boxes.shape)
+    # print(cls_boxes)
     # plt.show()
     # print('======')
 
@@ -120,6 +128,9 @@ def im_detect_all(model, im, box_proposals, timers=None):
         timers['misc_mask'].toc()
     else:
         cls_segms = None
+    
+    
+
 
     if cfg.MODEL.KEYPOINTS_ON and boxes.shape[0] > 0:
         timers['im_detect_keypoints'].tic()
@@ -856,7 +867,7 @@ def box_results_with_nms_and_limit(scores, boxes):
     # Apply threshold on detection probabilities and apply NMS
     # Skip j = 0, because it's the background class
     for j in range(1, num_classes):
-        inds = np.where(scores[:, j] > cfg.TEST.SCORE_THRESH)[0]
+        inds = np.where(scores[:, j] > cfg.TEST.SCORE_THRESH)[0]  #cfg.TEST.SCORE_THRESH
         scores_j = scores[inds, j]
         boxes_j = boxes[inds, j * 4:(j + 1) * 4]
         dets_j = np.hstack((boxes_j, scores_j[:, np.newaxis])).astype(

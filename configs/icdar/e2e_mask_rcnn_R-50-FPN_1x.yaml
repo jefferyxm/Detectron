@@ -6,12 +6,12 @@ MODEL:
   MASK_ON: True
 NUM_GPUS: 1
 DATA_LOADER:
-  NUM_THREADS: 4
-  MINIBATCH_QUEUE_SIZE: 32
+  NUM_THREADS: 1
+  MINIBATCH_QUEUE_SIZE: 64
 SOLVER:
   WEIGHT_DECAY: 0.0001
   LR_POLICY: steps_with_decay
-  BASE_LR: 0.002  
+  BASE_LR: 0.0025  
   # 0.0025
   GAMMA: 0.1
   MAX_ITER: 90000
@@ -34,6 +34,7 @@ MRCNN:
   ROI_XFORM_SAMPLING_RATIO: 2  # default 0
   DILATION: 1  # default 2
   CONV_INIT: MSRAFill  # default GaussianFill
+  THRESH_BINARIZE: 0.5
 TRAIN:
   # WEIGHTS: https://s3-us-west-2.amazonaws.com/detectron/ImageNetPretrained/MSRA/R-50.pkl
   WEIGHTS: /home/xiem/icdar_tmp/R-50.pkl
@@ -42,15 +43,17 @@ TRAIN:
   MAX_SIZE: 1333
   BATCH_SIZE_PER_IM: 512
   RPN_PRE_NMS_TOP_N: 2000  # Per FPN level
-  IMS_PER_BATCH: 2
-  USE_FLIPPED: True
+  IMS_PER_BATCH: 1
+  USE_FLIPPED: False
   SNAPSHOT_ITERS: 5000
 TEST:
   DATASETS: ('icdar_2015_val',)
   SCALE: 800
   MAX_SIZE: 1333
-  NMS: 0.5
+  NMS: 0.7
   RPN_PRE_NMS_TOP_N: 1000  # Per FPN level
   RPN_POST_NMS_TOP_N: 1000
   FORCE_JSON_DATASET_EVAL: True
+  SCORE_THRESH: 0.5
 OUTPUT_DIR: .
+VIS_TH: 0.9

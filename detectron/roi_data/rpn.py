@@ -459,7 +459,7 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                     this_level_box_delta[valid_apidx[enable_idx[0]], 3] = \
                             np.log( gt_heghts/(this_level_wh[valid_apidx[enable_idx[0]], 1] * norm) )
 
-                    DBG=0
+                    DBG=1
                     if DBG:
                         # show label in image
                         import matplotlib.pyplot as plt

@@ -60,6 +60,7 @@ def train_model():
     training_stats = TrainingStats(model)
     CHECKPOINT_PERIOD = int(cfg.TRAIN.SNAPSHOT_ITERS / cfg.NUM_GPUS)
 
+    last_vald_loss = 100
     for cur_iter in range(start_iter, cfg.SOLVER.MAX_ITER):
         training_stats.IterTic()
         lr = model.UpdateWorkspaceLr(cur_iter, lr_policy.get_lr_at_iter(cur_iter))
@@ -80,6 +81,14 @@ def train_model():
             # Reset the iteration timer to remove outliers from the first few
             # SGD iterations
             training_stats.ResetIterTimer()
+        
+        # validation every 1000 iterations(2 epoch of training set)
+        if cur_iter%1000 == 0:
+            vald_loss = run_validation_set()
+            if vald_loss < last_vald_loss:
+                nu.save_model_to_weights_file(checkpoints['best'], model)
+                last_vald_loss = vald_loss
+
 
         if np.isnan(training_stats.iter_total_loss):
             logger.critical('Loss is NaN, exiting...')
