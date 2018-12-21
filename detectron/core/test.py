@@ -73,10 +73,33 @@ def im_detect_all(model, im, box_proposals, timers=None):
     timers['im_detect_bbox'].toc()
 
 
+    # rois1 = workspace.FetchBlob(core.ScopedName('adarpn_cls_logits_fpn2'))
+    # rois2 = workspace.FetchBlob(core.ScopedName('adarpn_cls_logits_fpn3'))
+    # rois3 = workspace.FetchBlob(core.ScopedName('adarpn_cls_logits_fpn4'))
+    # rois4 = workspace.FetchBlob(core.ScopedName('adarpn_cls_logits_fpn5'))
+    # # rpn_labels_int32_fpn6
+
+    # print(rois1.shape)
+    # print(rois2.shape)
+    # print(rois3.shape)
+    # print(rois4.shape)
+
+    # # show feature map of the RPN score output
     # import matplotlib.pyplot as plt
+    # plt.subplot(2,3,1)
+    # plt.imshow(rois1[0][0], cmap=plt.cm.hot)
+    # plt.subplot(2,3,2)
+    # plt.imshow(rois2[0][0], cmap=plt.cm.hot)
+    # plt.subplot(2,3,3)
+    # plt.imshow(rois3[0][0], cmap=plt.cm.hot)
+    # plt.subplot(2,3,4)
+    # plt.imshow(rois4[0][0], cmap=plt.cm.hot)
+
+
+    # # import matplotlib.pyplot as plt
     # im_plt = im[:,:,(2,1,0)]
-    # plt.cla()
-    # plt.subplot(1,2,1)
+    # # plt.cla()
+    # plt.subplot(2,3,5)
     # plt.imshow(im_plt)
     # print(boxes.shape)
 
@@ -99,19 +122,19 @@ def im_detect_all(model, im, box_proposals, timers=None):
     timers['misc_bbox'].toc()
 
 
-    # plt.subplot(1,2,2)
+    # plt.subplot(2,3,6)
     # plt.imshow(im_plt)
     # for i in range(boxes.shape[0]):
     #     plt.gca().add_patch(plt.Rectangle((boxes[i][0], boxes[i][1] ), \
     #                     boxes[i][2] - boxes[i][0], boxes[i][3] - boxes[i][1], \
     #                     fill=False, edgecolor='r', linewidth=1))
-    # # global cnt
-    # # cnt = cnt + 1
-    # # if(cnt >20):
-    # print(boxes.shape)
-    # print(cls_boxes)
+    # # # global cnt
+    # # # cnt = cnt + 1
+    # # # if(cnt >20):
+    # # print(boxes.shape)
+    # # print(cls_boxes)
     # plt.show()
-    # print('======')
+    # # print('======')
 
     if cfg.MODEL.MASK_ON and boxes.shape[0] > 0:
         timers['im_detect_mask'].tic()
