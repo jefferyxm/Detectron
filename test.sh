@@ -5,3 +5,4 @@ python2 tools/test_net.py \
     TEST.WEIGHTS ~/3-deepLearning/3-scene_text_detection/detectron/model/icdar/adarpn2/train/icdar_2015_train/generalized_rcnn/model_final.pkl \
     NUM_GPUS 1 \
     VIS True
+

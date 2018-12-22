@@ -139,6 +139,14 @@ class GenerateProposalsOp(object):
         #     to match the order of anchors and bbox_deltas
         scores = scores.transpose((1, 2, 0)).reshape((-1, 1))
 
+
+        # whs may be less than zero, filter them out
+        valid_index = np.where( (bbox_whs[:,0])>0 & (bbox_whs[:,1]>0) )[0]
+        bbox_deltas = bbox_deltas[valid_index, :]
+        bbox_whs = bbox_whs[valid_index, :] * norm
+        anchor_points = anchor_points[valid_index, :]
+        scores = scores[valid_index]
+
         # 4. sort all (proposal, score) pairs by score from highest to lowest
         # 5. take top pre_nms_topN (e.g. 6000)
         if pre_nms_topN <= 0 or pre_nms_topN >= len(scores):
@@ -157,13 +165,6 @@ class GenerateProposalsOp(object):
         bbox_whs = bbox_whs[order, :]
         anchor_points = anchor_points[order, :]
         scores = scores[order]
-
-        # whs may be less than zero, filter them out
-        valid_index = np.where( (bbox_whs[:,0])>0 & (bbox_whs[:,1]>0) )[0]
-        bbox_deltas = bbox_deltas[valid_index, :]
-        bbox_whs = bbox_whs[valid_index, :] * norm
-        anchor_points = anchor_points[valid_index, :]
-        scores = scores[valid_index]
 
         # Transform anchors into proposals via bbox transformations
         proposals = box_utils.bbox_transform_anchor_point(

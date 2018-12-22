@@ -354,9 +354,9 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                     norm = anchor_size[0]*1.0
                     gt_areas = (gt_rois[:, 2] - gt_rois[:, 0] + 1)*(gt_rois[:, 3]-gt_rois[:, 1] + 1)/(norm*norm)
                     if lvl == k_min:
-                        valid_gtidx = np.where(gt_areas <= 4.0)[0]
+                        valid_gtidx = np.where(gt_areas <= 2.0)[0]
                     else:
-                        valid_gtidx = np.where((gt_areas <= 4.0) & (gt_areas >= 0.25))[0]
+                        valid_gtidx = np.where((gt_areas <= 2.0) & (gt_areas >= 0.5))[0]
                     valid_gts = gt_rois[valid_gtidx, :]
 
                     # find all aps inside the gts
@@ -459,7 +459,7 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                     this_level_box_delta[valid_apidx[enable_idx[0]], 3] = \
                             np.log( gt_heghts/(this_level_wh[valid_apidx[enable_idx[0]], 1] * norm) )
 
-                    DBG=1
+                    DBG=0
                     if DBG:
                         # show label in image
                         import matplotlib.pyplot as plt

@@ -83,11 +83,11 @@ def train_model():
             training_stats.ResetIterTimer()
         
         # validation every 1000 iterations(2 epoch of training set)
-        if cur_iter%1000 == 0:
-            vald_loss = run_validation_set()
-            if vald_loss < last_vald_loss:
-                nu.save_model_to_weights_file(checkpoints['best'], model)
-                last_vald_loss = vald_loss
+        # if cur_iter%1000 == 0:
+        #     vald_loss = run_validation_set()
+        #     if vald_loss < last_vald_loss:
+        #         nu.save_model_to_weights_file(checkpoints['best'], model)
+        #         last_vald_loss = vald_loss
 
 
         if np.isnan(training_stats.iter_total_loss):

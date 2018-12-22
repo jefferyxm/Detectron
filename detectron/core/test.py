@@ -73,10 +73,10 @@ def im_detect_all(model, im, box_proposals, timers=None):
     timers['im_detect_bbox'].toc()
 
 
-    # rois1 = workspace.FetchBlob(core.ScopedName('adarpn_cls_logits_fpn2'))
-    # rois2 = workspace.FetchBlob(core.ScopedName('adarpn_cls_logits_fpn3'))
-    # rois3 = workspace.FetchBlob(core.ScopedName('adarpn_cls_logits_fpn4'))
-    # rois4 = workspace.FetchBlob(core.ScopedName('adarpn_cls_logits_fpn5'))
+    # rois1 = workspace.FetchBlob(core.ScopedName('adarpn_cls_probs_fpn2'))
+    # rois2 = workspace.FetchBlob(core.ScopedName('adarpn_cls_probs_fpn3'))
+    # rois3 = workspace.FetchBlob(core.ScopedName('adarpn_cls_probs_fpn4'))
+    # rois4 = workspace.FetchBlob(core.ScopedName('adarpn_cls_probs_fpn5'))
     # # rpn_labels_int32_fpn6
 
     # print(rois1.shape)
@@ -112,7 +112,6 @@ def im_detect_all(model, im, box_proposals, timers=None):
     # # plt.show()
     # print('======')
 
-
     # score and boxes are from the whole image after score thresholding and nms
     # (they are not separated by class)
     # cls_boxes boxes and scores are separated by class and in the format used
@@ -121,20 +120,22 @@ def im_detect_all(model, im, box_proposals, timers=None):
     scores, boxes, cls_boxes = box_results_with_nms_and_limit(scores, boxes)
     timers['misc_bbox'].toc()
 
-
     # plt.subplot(2,3,6)
     # plt.imshow(im_plt)
     # for i in range(boxes.shape[0]):
     #     plt.gca().add_patch(plt.Rectangle((boxes[i][0], boxes[i][1] ), \
     #                     boxes[i][2] - boxes[i][0], boxes[i][3] - boxes[i][1], \
     #                     fill=False, edgecolor='r', linewidth=1))
-    # # # global cnt
-    # # # cnt = cnt + 1
-    # # # if(cnt >20):
-    # # print(boxes.shape)
-    # # print(cls_boxes)
-    # plt.show()
-    # # print('======')
+
+
+    # # global cnt
+    # # cnt = cnt + 1
+    # # if(cnt >20):
+    # print(boxes.shape)
+    # print(cls_boxes)
+
+
+    plt.show()
 
     if cfg.MODEL.MASK_ON and boxes.shape[0] > 0:
         timers['im_detect_mask'].tic()
