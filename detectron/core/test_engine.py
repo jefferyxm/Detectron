@@ -255,7 +255,7 @@ def test_net(
         im = cv2.imread(entry['image'])
         with c2_utils.NamedCudaScope(gpu_id):
             cls_boxes_i, cls_segms_i, cls_keyps_i = im_detect_all(
-                model, im, box_proposals, timers
+                model, im, box_proposals, timers, entry
             )
 
         extend_results(i, all_boxes, cls_boxes_i)

@@ -26,7 +26,7 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-from __future__ import unicode_literals
+# from __future__ import unicode_literals
 
 from collections import defaultdict
 import cv2
@@ -51,7 +51,9 @@ import detectron.utils.keypoints as keypoint_utils
 logger = logging.getLogger(__name__)
 
 cnt = 0
-def im_detect_all(model, im, box_proposals, timers=None):
+positv_cnt = []
+
+def im_detect_all(model, im, box_proposals, timers=None, entry=None):
     if timers is None:
         timers = defaultdict(Timer)
 
@@ -72,45 +74,98 @@ def im_detect_all(model, im, box_proposals, timers=None):
         )
     timers['im_detect_bbox'].toc()
 
+    p_boxes = boxes[:,4:8]
 
-    # rois1 = workspace.FetchBlob(core.ScopedName('adarpn_cls_probs_fpn2'))
-    # rois2 = workspace.FetchBlob(core.ScopedName('adarpn_cls_probs_fpn3'))
-    # rois3 = workspace.FetchBlob(core.ScopedName('adarpn_cls_probs_fpn4'))
-    # rois4 = workspace.FetchBlob(core.ScopedName('adarpn_cls_probs_fpn5'))
-    # # rpn_labels_int32_fpn6
+    # get gt box
+    im_path = entry['image']
+    gt_root = '/home/xiem/3-deepLearning/3-scene_text_detection/detectron/detectron/datasets/data/icdar/icdar15/test/anno/'
+    gt_path = gt_root + 'gt_' + (im_path.split('/')[-1]).split('.')[0] + '.txt' 
 
-    # print(rois1.shape)
-    # print(rois2.shape)
-    # print(rois3.shape)
-    # print(rois4.shape)
+    gt_file = open(gt_path, 'r')
+    gt_lines = gt_file.readlines()
+    gt_file.close()
 
-    # # show feature map of the RPN score output
-    # import matplotlib.pyplot as plt
-    # plt.subplot(2,3,1)
-    # plt.imshow(rois1[0][0], cmap=plt.cm.hot)
-    # plt.subplot(2,3,2)
-    # plt.imshow(rois2[0][0], cmap=plt.cm.hot)
-    # plt.subplot(2,3,3)
-    # plt.imshow(rois3[0][0], cmap=plt.cm.hot)
-    # plt.subplot(2,3,4)
-    # plt.imshow(rois4[0][0], cmap=plt.cm.hot)
+    gt_rois = []
+    for line in gt_lines:
+        if '\xef\xbb\xbf'  in line:
+            line = line.replace('\xef\xbb\xbf','')
+        
+        word = line.split(',')[-1]    
+        if word != '###\r\n':
+            str_points = line.split(',')[:8]
+            points = map(int, str_points)
+            px = points[::2]
+            py = points[1::2]
+            # box = [min(px), min(py), max(px)-min(px), max(py)-min(py)]
+            box = [min(px), min(py), max(px), max(py)]
+            gt_rois.append(box)
 
 
-    # # import matplotlib.pyplot as plt
-    # im_plt = im[:,:,(2,1,0)]
-    # # plt.cla()
-    # plt.subplot(2,3,5)
-    # plt.imshow(im_plt)
-    # print(boxes.shape)
+    gt_rois = np.array(gt_rois, dtype=np.float32)
+    print(gt_rois)
 
-    # for i in range(boxes.shape[0]):
-    #     # plt.gca().add_patch(plt.Rectangle((boxes[i][4], boxes[i][5] ), \
-    #     #                 boxes[i][6] - boxes[i][4], boxes[i][7] - boxes[i][5], \
-    #     #                 fill=False, edgecolor='r', linewidth=1))
-    #     plt.gca().add_patch(plt.Circle((boxes[i][4], boxes[i][5]), 1, edgecolor='b', fill=True, linewidth=1))
-    #     plt.gca().add_patch(plt.Circle((boxes[i][6], boxes[i][7]), 1, edgecolor='r', fill=True, linewidth=1))
-    # # plt.show()
-    # print('======')
+    positv_idx = []
+    if (len(gt_rois)>0):
+        import detectron.utils.boxes as box_utils
+        anchor_by_gt_overlap = box_utils.bbox_overlaps(p_boxes, gt_rois)
+        anchor_to_gt_argmax = np.argmax(anchor_by_gt_overlap, axis=1)
+
+
+        anchor_to_gt_max = anchor_by_gt_overlap[np.arange(len(anchor_to_gt_argmax)), anchor_to_gt_argmax]
+
+        print(anchor_to_gt_max)
+
+        positv_idx = np.where(anchor_to_gt_max >= cfg.TRAIN.RPN_POSITIVE_OVERLAP)[0]
+        print(positv_idx)
+        print('!!!!!!!!!!!!!')
+        print(len(positv_idx))
+
+    global positv_cnt
+    positv_cnt.append(len(positv_idx))
+
+    print('-----positv_cnt----')
+    print(positv_cnt)
+
+    DBG = 0
+    if DBG:
+        rois1 = workspace.FetchBlob(core.ScopedName('adarpn_cls_logits_fpn2'))
+        rois2 = workspace.FetchBlob(core.ScopedName('adarpn_cls_logits_fpn3'))
+        rois3 = workspace.FetchBlob(core.ScopedName('adarpn_cls_logits_fpn4'))
+        rois4 = workspace.FetchBlob(core.ScopedName('adarpn_cls_logits_fpn5'))
+        # rpn_labels_int32_fpn6
+
+        print(rois1.shape)
+        print(rois2.shape)
+        print(rois3.shape)
+        print(rois4.shape)
+
+        # show feature map of the RPN score output
+        import matplotlib.pyplot as plt
+        plt.subplot(2,3,1)
+        plt.imshow(rois1[0][0], cmap=plt.cm.hot)
+        plt.subplot(2,3,2)
+        plt.imshow(rois2[0][0], cmap=plt.cm.hot)
+        plt.subplot(2,3,3)
+        plt.imshow(rois3[0][0], cmap=plt.cm.hot)
+        plt.subplot(2,3,4)
+        plt.imshow(rois4[0][0], cmap=plt.cm.hot)
+
+
+        # import matplotlib.pyplot as plt
+        im_plt = im[:,:,(2,1,0)]
+        # plt.cla()
+        plt.subplot(2,3,5)
+        plt.imshow(im_plt)
+        print(boxes.shape)
+
+        for i in range(boxes.shape[0]):
+            # plt.gca().add_patch(plt.Rectangle((boxes[i][4], boxes[i][5] ), \
+            #                 boxes[i][6] - boxes[i][4], boxes[i][7] - boxes[i][5], \
+            #                 fill=False, edgecolor='r', linewidth=1))
+            plt.gca().add_patch(plt.Circle((boxes[i][4], boxes[i][5]), 1, edgecolor='b', fill=True, linewidth=1))
+            plt.gca().add_patch(plt.Circle((boxes[i][6], boxes[i][7]), 1, edgecolor='r', fill=True, linewidth=1))
+        # plt.show()
+        print('======')
 
     # score and boxes are from the whole image after score thresholding and nms
     # (they are not separated by class)
@@ -120,22 +175,21 @@ def im_detect_all(model, im, box_proposals, timers=None):
     scores, boxes, cls_boxes = box_results_with_nms_and_limit(scores, boxes)
     timers['misc_bbox'].toc()
 
-    # plt.subplot(2,3,6)
-    # plt.imshow(im_plt)
-    # for i in range(boxes.shape[0]):
-    #     plt.gca().add_patch(plt.Rectangle((boxes[i][0], boxes[i][1] ), \
-    #                     boxes[i][2] - boxes[i][0], boxes[i][3] - boxes[i][1], \
-    #                     fill=False, edgecolor='r', linewidth=1))
+    if DBG:
+        plt.subplot(2,3,6)
+        plt.imshow(im_plt)
+        for i in range(boxes.shape[0]):
+            plt.gca().add_patch(plt.Rectangle((boxes[i][0], boxes[i][1] ), \
+                            boxes[i][2] - boxes[i][0], boxes[i][3] - boxes[i][1], \
+                            fill=False, edgecolor='r', linewidth=1))
 
+        # # global cnt
+        # # cnt = cnt + 1
+        # # if(cnt >20):
+        # print(boxes.shape)
+        # print(cls_boxes)
 
-    # # global cnt
-    # # cnt = cnt + 1
-    # # if(cnt >20):
-    # print(boxes.shape)
-    # print(cls_boxes)
-
-
-    plt.show()
+        plt.show()
 
     if cfg.MODEL.MASK_ON and boxes.shape[0] > 0:
         timers['im_detect_mask'].tic()
@@ -153,8 +207,6 @@ def im_detect_all(model, im, box_proposals, timers=None):
     else:
         cls_segms = None
     
-    
-
 
     if cfg.MODEL.KEYPOINTS_ON and boxes.shape[0] > 0:
         timers['im_detect_keypoints'].tic()
@@ -294,23 +346,23 @@ def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None):
     # -----------------------------------
 
 
-    if cfg.TEST.BBOX_REG:
-        # Apply bounding-box regression deltas
-        box_deltas = workspace.FetchBlob(core.ScopedName('bbox_pred')).squeeze()
-        # In case there is 1 proposal
-        box_deltas = box_deltas.reshape([-1, box_deltas.shape[-1]])
-        if cfg.MODEL.CLS_AGNOSTIC_BBOX_REG:
-            # Remove predictions for bg class (compat with MSRA code)
-            box_deltas = box_deltas[:, -4:]
-        pred_boxes = box_utils.bbox_transform(
-            boxes, box_deltas, cfg.MODEL.BBOX_REG_WEIGHTS
-        )
-        pred_boxes = box_utils.clip_tiled_boxes(pred_boxes, im.shape)
-        if cfg.MODEL.CLS_AGNOSTIC_BBOX_REG:
-            pred_boxes = np.tile(pred_boxes, (1, scores.shape[1]))
-    else:
+    # if cfg.TEST.BBOX_REG:
+    #     # Apply bounding-box regression deltas
+    #     box_deltas = workspace.FetchBlob(core.ScopedName('bbox_pred')).squeeze()
+    #     # In case there is 1 proposal
+    #     box_deltas = box_deltas.reshape([-1, box_deltas.shape[-1]])
+    #     if cfg.MODEL.CLS_AGNOSTIC_BBOX_REG:
+    #         # Remove predictions for bg class (compat with MSRA code)
+    #         box_deltas = box_deltas[:, -4:]
+    #     pred_boxes = box_utils.bbox_transform(
+    #         boxes, box_deltas, cfg.MODEL.BBOX_REG_WEIGHTS
+    #     )
+    #     pred_boxes = box_utils.clip_tiled_boxes(pred_boxes, im.shape)
+    #     if cfg.MODEL.CLS_AGNOSTIC_BBOX_REG:
+    #         pred_boxes = np.tile(pred_boxes, (1, scores.shape[1]))
+    # else:
         # Simply repeat the boxes, once for each class
-        pred_boxes = np.tile(boxes, (1, scores.shape[1]))
+    pred_boxes = np.tile(boxes, (1, scores.shape[1]))
 
     if cfg.DEDUP_BOXES > 0 and not cfg.MODEL.FASTER_RCNN:
         # Map scores and predictions back to the original set of boxes
