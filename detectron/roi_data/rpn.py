@@ -431,11 +431,6 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
 
                     enable_idx = np.where(IOU>=0.7)
 
-                    # print(IOU)
-                    # print(WHidx)
-                    # print(enable_idx)
-                    # input()
-
                     # generate label map
                     this_level_label[ valid_apidx[enable_idx[0]] ] = 1
 
@@ -485,9 +480,32 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                             plt.gca().add_patch(plt.Rectangle((gt[0], gt[1]), gt[2]-gt[0], gt[3]-gt[1] ,fill=False, edgecolor='g', linewidth=1))
 
                         plt.show()
-                    
 
-                    
+                # subsampling positive or negetive examples
+                fg_idx = np.where(this_level_label==1)[0]
+                fg_num = len(fg_idx)
+                example_this_level = int(cfg.TRAIN.RPN_BATCH_SIZE_PER_IM / (2.**(lvl - k_min + 1)))
+                fg_example_this_level = int(example_this_level * cfg.TRAIN.RPN_FG_FRACTION)
+                if fg_num > fg_example_this_level:
+                    # subsampling positive
+                    disable_inds = npr.choice(fg_idx, size=(fg_num - fg_example_this_level), replace=False)
+                    this_level_label[disable_inds] = -1
+                fg_idx = np.where(this_level_label == 1)[0]
+                fg_num = len(fg_idx)
+
+
+                # add nagative samples
+                num_bg = example_this_level - fg_num
+                bg_map = np.zeros((this_level_ap.shape[0],), dtype=np.int32)
+                bg_map[valid_apidx] = 1
+                bg_idx = np.where(bg_map==0)[0]
+                this_level_label[bg_idx] = -1
+                if len(bg_idx) > num_bg:
+                    enable_inds = bg_idx[npr.randint(len(bg_idx), size=num_bg)]
+                    this_level_label[enable_inds] = 0
+                bg_idx = np.where(this_level_label == 0)[0]
+                
+
                 this_level_wh_inside_weight = np.zeros((this_level_ap.shape[0], 2), dtype=np.float32)
                 this_level_wh_inside_weight[this_level_label == 1, :] = (1.0, 1.0)
 
@@ -497,20 +515,11 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                 this_level_wh_outside_weight = np.zeros((this_level_ap.shape[0], 2), dtype=np.float32)
                 this_level_box_outside_weight = np.zeros((this_level_ap.shape[0], 4), dtype=np.float32)
 
-                fg_idx = np.where(this_level_label==1)[0]
-                fg_num = len(fg_idx)
-                if fg_num > 0:
-                    # add nagative samples
-                    bg_map = np.zeros((this_level_ap.shape[0],), dtype=np.int32)
-                    bg_map[valid_apidx] = 1
-                    bg_idx = np.where(bg_map==0)[0]
-                    en_bg_idx = bg_idx[ npr.randint(len(bg_idx), size=int(fg_num)) ]
-                    this_level_label[en_bg_idx] = 0
-                    # add weights
-                    this_level_box_outside_weight[this_level_label == 1, :] = 1.0 / (2*fg_num)
-                    this_level_box_outside_weight[this_level_label == 0, :] = 1.0 / (2*fg_num)
-                    this_level_wh_outside_weight[this_level_label == 1, :] = 1.0 / (2*fg_num)
-                    this_level_wh_outside_weight[this_level_label == 0, :] = 1.0 / (2*fg_num)
+                # suppose that there always 4 fpn_rpn levels
+                this_level_box_outside_weight[this_level_label == 1, :] = 1.0 / (example_this_level * 15 / 16)
+                this_level_box_outside_weight[this_level_label == 0, :] = 1.0 / (example_this_level * 15 / 16)
+                this_level_wh_outside_weight[this_level_label == 1, :] = 1.0 / (example_this_level * 15 / 16)
+                this_level_wh_outside_weight[this_level_label == 0, :] = 1.0 / (example_this_level * 15 / 16)
 
                 # reshape as blob shape
                 field_stride = 2.**lvl
@@ -529,7 +538,24 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                 this_level_box_inside_weight= this_level_box_inside_weight.reshape((1, H, W, 4)).transpose(0,3,1,2)
                 this_level_box_outside_weight= this_level_box_outside_weight.reshape((1, H, W, 4)).transpose(0,3,1,2)
 
-            
+                
+                DBG = 0
+                if DBG:
+                    print(this_level_label.shape)
+                    import matplotlib.pyplot as plt
+                    import cv2
+                    im = cv2.imread(entry['image'])
+                    im = cv2.resize(im, (0,0), fx=scale, fy=scale)
+                    plt.cla()
+                    plt.subplot(1,2,1)
+                    im_plt = im[:,:,(2,1,0)]
+                    plt.imshow(im_plt)
+
+                    plt.subplot(1,2,2)
+                    plt.imshow(this_level_label[0,0,:,:])
+                    plt.show()
+                
+
                 # add into blobs
                 blobs['adarpn_labels_int32_wide_fpn' + str(lvl)].append(this_level_label)
                 blobs['adarpn_bbox_wh_wide_fpn' + str(lvl)].append(this_level_wh)

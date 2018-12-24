@@ -503,13 +503,13 @@ def add_fpn_rpn_losses(model):
         loss_adarpn_cls_fpn = model.net.SigmoidCrossEntropyLoss(
             ['adarpn_cls_logits_fpn' + slvl, 'adarpn_labels_int32_fpn' + slvl],
             'loss_adarpn_cls_fpn' + slvl,
-            # normalize=0,
-            # scale=(
-            #     model.GetLossScale() / cfg.TRAIN.RPN_BATCH_SIZE_PER_IM /
-            #     cfg.TRAIN.IMS_PER_BATCH
-            # )
-            normalize=1,
-            scale = model.GetLossScale()
+            normalize=0,
+            scale=(
+                model.GetLossScale() / (cfg.TRAIN.RPN_BATCH_SIZE_PER_IM  * 15 / 16 )/
+                cfg.TRAIN.IMS_PER_BATCH
+            )
+            # normalize=1,
+            # scale = model.GetLossScale()
         )
         loss_adarpn_bbox_wh_fpn = model.net.SmoothL1Loss(
             [
