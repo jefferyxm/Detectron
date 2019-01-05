@@ -285,6 +285,13 @@ COCO_AP75 = 2
 COCO_APS = 3
 COCO_APM = 4
 COCO_APL = 5
+
+COCO_AR1 = 6
+COCO_AR10 = 7
+COCO_AR100 = 8
+COCO_ARS = 9
+COCO_ARM = 10
+COCO_ARL = 11
 # Slight difference for keypoints
 COCO_KPS_APM = 3
 COCO_KPS_APL = 4
@@ -304,6 +311,13 @@ def _coco_eval_to_box_results(coco_eval):
         res['box']['APs'] = s[COCO_APS]
         res['box']['APm'] = s[COCO_APM]
         res['box']['APl'] = s[COCO_APL]
+
+        res['box']['AR1'] = s[COCO_AR1]
+        res['box']['AR10'] = s[COCO_AR10]
+        res['box']['AR100'] = s[COCO_AR100]
+        res['box']['ARs'] = s[COCO_ARS]
+        res['box']['ARm'] = s[COCO_ARM]
+        res['box']['ARl'] = s[COCO_ARL]
     return res
 
 
@@ -317,6 +331,14 @@ def _coco_eval_to_mask_results(coco_eval):
         res['mask']['APs'] = s[COCO_APS]
         res['mask']['APm'] = s[COCO_APM]
         res['mask']['APl'] = s[COCO_APL]
+
+        res['mask']['AR1'] = s[COCO_AR1]
+        res['mask']['AR10'] = s[COCO_AR10]
+        res['mask']['AR100'] = s[COCO_AR100]
+        res['mask']['ARs'] = s[COCO_ARS]
+        res['mask']['ARm'] = s[COCO_ARM]
+        res['mask']['ARl'] = s[COCO_ARL]
+
     return res
 
 
@@ -353,6 +375,12 @@ def _empty_box_results():
                 ('APs', -1),
                 ('APm', -1),
                 ('APl', -1),
+                ('AR1', -1),
+                ('AR10', -1),
+                ('AR100', -1),
+                ('ARs', -1),
+                ('ARm', -1),
+                ('ARl', -1),
             ]
         )
     })
@@ -369,6 +397,12 @@ def _empty_mask_results():
                 ('APs', -1),
                 ('APm', -1),
                 ('APl', -1),
+                ('AR1', -1),
+                ('AR10', -1),
+                ('AR100', -1),
+                ('ARs', -1),
+                ('ARm', -1),
+                ('ARl', -1),
             ]
         )
     })

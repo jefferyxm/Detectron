@@ -40,6 +40,8 @@ from detectron.utils.logging import setup_logging
 import detectron.utils.c2 as c2_utils
 import detectron.utils.train
 
+from c2board.writer import SummaryWriter
+
 c2_utils.import_contrib_ops()
 c2_utils.import_detectron_ops()
 
@@ -110,8 +112,11 @@ def main():
     # be removed with a reasonble execution-speed tradeoff (such as certain
     # non-deterministic cudnn functions).
     np.random.seed(cfg.RNG_SEED)
+
+    c2tb_logger = SummaryWriter('./log/')
+
     # Execute the training run
-    checkpoints = detectron.utils.train.train_model()
+    checkpoints = detectron.utils.train.train_model(c2tb_logger)
     # Test the trained model
     if not args.skip_test:
         test_model(checkpoints['final'], args.multi_gpu_testing, args.opts)
