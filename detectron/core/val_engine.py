@@ -139,11 +139,11 @@ def run_validation(val_model, val_dataset, val_roidb, cur_iter, val_output_dir, 
     tb_logger.write_scalars(val_results[cfg.TEST.DATASETS[0]]['mask'], cur_iter)
 
     # get AP and AR100 to compute Hmean
-    box_AP = val_results[cfg.TEST.DATASETS[0]]['box']['AP']
-    box_AR100 = val_results[cfg.TEST.DATASETS[0]]['box']['AR100']
+    box_AP = val_results[cfg.TEST.DATASETS[0]]['box']['boxAP']
+    box_AR100 = val_results[cfg.TEST.DATASETS[0]]['box']['boxAR100']
 
-    mask_AP = val_results[cfg.TEST.DATASETS[0]]['mask']['AP']
-    mask_AR100 = val_results[cfg.TEST.DATASETS[0]]['mask']['AR100']
+    mask_AP = val_results[cfg.TEST.DATASETS[0]]['mask']['maskAP']
+    mask_AR100 = val_results[cfg.TEST.DATASETS[0]]['mask']['maskAR100']
     
     if box_AP==0 or box_AR100==0:
         box_hmean=0

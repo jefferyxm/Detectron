@@ -34,7 +34,7 @@ MRCNN:
   CONV_INIT: MSRAFill  # default GaussianFill
 TRAIN:
   # WEIGHTS: https://s3-us-west-2.amazonaws.com/detectron/ImageNetPretrained/MSRA/R-50.pkl
-  WEIGHTS: /home/xiem/1-deeplearning/model/detectron/R-50.pkl
+  WEIGHTS: data/R-50.pkl
   DATASETS: ('icdar_2015_train',)
   SCALES: (800,)
   MAX_SIZE: 1333
