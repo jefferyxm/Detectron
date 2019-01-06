@@ -28,6 +28,7 @@ import logging
 import numpy as np
 import pprint
 import sys
+import os
 
 from caffe2.python import workspace
 
@@ -37,10 +38,13 @@ from detectron.core.config import merge_cfg_from_file
 from detectron.core.config import merge_cfg_from_list
 from detectron.core.test_engine import run_inference
 from detectron.utils.logging import setup_logging
+from detectron.core.config import get_output_dir
 import detectron.utils.c2 as c2_utils
 import detectron.utils.train
 
 from c2board.writer import SummaryWriter
+from datetime import datetime
+import socket
 
 c2_utils.import_contrib_ops()
 c2_utils.import_detectron_ops()
@@ -112,8 +116,10 @@ def main():
     # be removed with a reasonble execution-speed tradeoff (such as certain
     # non-deterministic cudnn functions).
     np.random.seed(cfg.RNG_SEED)
-
-    c2tb_logger = SummaryWriter('./log/')
+    output_dir = get_output_dir(cfg.TRAIN.DATASETS, training=True)
+    datastr = datetime.now().strftime('%b%d-%H-%M-%S') + '_' + socket.gethostname()
+    logdir = os.path.join(output_dir, 'tb_logger_' + datastr)
+    c2tb_logger = SummaryWriter(logdir)
 
     # Execute the training run
     checkpoints = detectron.utils.train.train_model(c2tb_logger)
