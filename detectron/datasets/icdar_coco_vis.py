@@ -38,15 +38,15 @@ for i in imgIds:
     plt.imshow(I); plt.axis('off')
     annIds = coco.getAnnIds(imgIds=img['id'], catIds=catIds, iscrowd=None)
     anns = coco.loadAnns(annIds)
-    try:
-        coco.showAnns(anns)
-        for ann in anns:
-            bbox = ann['bbox']
-            plt.gca().add_patch(plt.Rectangle((bbox[0], bbox[1]), bbox[2], bbox[3], edgecolor='r', fill=False, linewidth=2))
-        # plt.show()
-        plt.savefig('/home/xiem/tmp/gt/val/gt_'+img['file_name'])
-        # plt.savefig('/home/xiem/tmp/gt2/train/gt_'+img['file_name'])
-        # plt.show()
+    # try:
+    coco.showAnns(anns)
+    for ann in anns:
+        bbox = ann['bbox']
+        plt.gca().add_patch(plt.Rectangle((bbox[0], bbox[1]), bbox[2], bbox[3], edgecolor='r', fill=False, linewidth=2))
+    plt.show()
+        # plt.savefig('/home/xiem/tmp/gt/val/gt_'+img['file_name'])
+        # # plt.savefig('/home/xiem/tmp/gt2/train/gt_'+img['file_name'])
+        # # plt.show()
 
-    except:
-        pass
+    # except:
+    #     pass

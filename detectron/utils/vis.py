@@ -45,22 +45,28 @@ _WHITE = (255, 255, 255)
 
 
 def kp_connections(keypoints):
+    # kp_lines = [
+    #     [keypoints.index('left_eye'), keypoints.index('right_eye')],
+    #     [keypoints.index('left_eye'), keypoints.index('nose')],
+    #     [keypoints.index('right_eye'), keypoints.index('nose')],
+    #     [keypoints.index('right_eye'), keypoints.index('right_ear')],
+    #     [keypoints.index('left_eye'), keypoints.index('left_ear')],
+    #     [keypoints.index('right_shoulder'), keypoints.index('right_elbow')],
+    #     [keypoints.index('right_elbow'), keypoints.index('right_wrist')],
+    #     [keypoints.index('left_shoulder'), keypoints.index('left_elbow')],
+    #     [keypoints.index('left_elbow'), keypoints.index('left_wrist')],
+    #     [keypoints.index('right_hip'), keypoints.index('right_knee')],
+    #     [keypoints.index('right_knee'), keypoints.index('right_ankle')],
+    #     [keypoints.index('left_hip'), keypoints.index('left_knee')],
+    #     [keypoints.index('left_knee'), keypoints.index('left_ankle')],
+    #     [keypoints.index('right_shoulder'), keypoints.index('left_shoulder')],
+    #     [keypoints.index('right_hip'), keypoints.index('left_hip')],
+    # ]
     kp_lines = [
-        [keypoints.index('left_eye'), keypoints.index('right_eye')],
-        [keypoints.index('left_eye'), keypoints.index('nose')],
-        [keypoints.index('right_eye'), keypoints.index('nose')],
-        [keypoints.index('right_eye'), keypoints.index('right_ear')],
-        [keypoints.index('left_eye'), keypoints.index('left_ear')],
-        [keypoints.index('right_shoulder'), keypoints.index('right_elbow')],
-        [keypoints.index('right_elbow'), keypoints.index('right_wrist')],
-        [keypoints.index('left_shoulder'), keypoints.index('left_elbow')],
-        [keypoints.index('left_elbow'), keypoints.index('left_wrist')],
-        [keypoints.index('right_hip'), keypoints.index('right_knee')],
-        [keypoints.index('right_knee'), keypoints.index('right_ankle')],
-        [keypoints.index('left_hip'), keypoints.index('left_knee')],
-        [keypoints.index('left_knee'), keypoints.index('left_ankle')],
-        [keypoints.index('right_shoulder'), keypoints.index('left_shoulder')],
-        [keypoints.index('right_hip'), keypoints.index('left_hip')],
+        [keypoints.index('lefttop'), keypoints.index('righttop')],
+        [keypoints.index('righttop'), keypoints.index('rightbottom')],
+        [keypoints.index('rightbottom'), keypoints.index('leftbottom')],
+        [keypoints.index('leftbottom'), keypoints.index('lefttop')]
     ]
     return kp_lines
 
@@ -250,7 +256,7 @@ def vis_one_image_opencv(
 
 def vis_one_image(
         im, im_name, output_dir, boxes, segms=None, keypoints=None, thresh=0.9,
-        kp_thresh=2, dpi=200, box_alpha=0.0, dataset=None, show_class=False,
+        kp_thresh=-1000, dpi=200, box_alpha=0.0, dataset=None, show_class=False,
         ext='png', out_when_no_box=False, gen_res_file=False):
     """Visual debugging of detections."""
     ''' and output detection result for icdar format'''
@@ -363,10 +369,10 @@ def vis_one_image(
                     line = str(px[0]) + ',' + str(py[0]) + ',' + str(px[1]) + ',' + str(py[1]) + ',' + \
                             str(px[2]) + ',' + str(py[2]) + ',' + str(px[3]) + ',' + str(py[3]) + '\r\n'
                     
-                    ax.add_patch(plt.Circle((px[0], py[0]), 1, edgecolor='r', fill=True, linewidth=1))
-                    ax.add_patch(plt.Circle((px[1], py[1]), 1, edgecolor='r', fill=True, linewidth=1))
-                    ax.add_patch(plt.Circle((px[2], py[2]), 1, edgecolor='r', fill=True, linewidth=1))
-                    ax.add_patch(plt.Circle((px[3], py[3]), 1, edgecolor='r', fill=True, linewidth=1))
+                    # ax.add_patch(plt.Circle((px[0], py[0]), 1, edgecolor='r', fill=True, linewidth=1))
+                    # ax.add_patch(plt.Circle((px[1], py[1]), 1, edgecolor='r', fill=True, linewidth=1))
+                    # ax.add_patch(plt.Circle((px[2], py[2]), 1, edgecolor='r', fill=True, linewidth=1))
+                    # ax.add_patch(plt.Circle((px[3], py[3]), 1, edgecolor='r', fill=True, linewidth=1))
                     if gen_res_file==True:  
                         pt_file.write(line)
 
@@ -385,40 +391,40 @@ def vis_one_image(
                     if kps[2, i1] > kp_thresh:
                         plt.plot(
                             kps[0, i1], kps[1, i1], '.', color=colors[l],
-                            markersize=3.0, alpha=0.7)
+                            markersize=3.0, alpha=0.1)
 
                     if kps[2, i2] > kp_thresh:
                         plt.plot(
                             kps[0, i2], kps[1, i2], '.', color=colors[l],
-                            markersize=3.0, alpha=0.7)
+                            markersize=3.0, alpha=1)
 
                 # add mid shoulder / mid hip for better visualization
-                mid_shoulder = (
-                    kps[:2, dataset_keypoints.index('right_shoulder')] +
-                    kps[:2, dataset_keypoints.index('left_shoulder')]) / 2.0
-                sc_mid_shoulder = np.minimum(
-                    kps[2, dataset_keypoints.index('right_shoulder')],
-                    kps[2, dataset_keypoints.index('left_shoulder')])
-                mid_hip = (
-                    kps[:2, dataset_keypoints.index('right_hip')] +
-                    kps[:2, dataset_keypoints.index('left_hip')]) / 2.0
-                sc_mid_hip = np.minimum(
-                    kps[2, dataset_keypoints.index('right_hip')],
-                    kps[2, dataset_keypoints.index('left_hip')])
-                if (sc_mid_shoulder > kp_thresh and
-                        kps[2, dataset_keypoints.index('nose')] > kp_thresh):
-                    x = [mid_shoulder[0], kps[0, dataset_keypoints.index('nose')]]
-                    y = [mid_shoulder[1], kps[1, dataset_keypoints.index('nose')]]
-                    line = plt.plot(x, y)
-                    plt.setp(
-                        line, color=colors[len(kp_lines)], linewidth=1.0, alpha=0.7)
-                if sc_mid_shoulder > kp_thresh and sc_mid_hip > kp_thresh:
-                    x = [mid_shoulder[0], mid_hip[0]]
-                    y = [mid_shoulder[1], mid_hip[1]]
-                    line = plt.plot(x, y)
-                    plt.setp(
-                        line, color=colors[len(kp_lines) + 1], linewidth=1.0,
-                        alpha=0.7)
+                # mid_shoulder = (
+                #     kps[:2, dataset_keypoints.index('right_shoulder')] +
+                #     kps[:2, dataset_keypoints.index('left_shoulder')]) / 2.0
+                # sc_mid_shoulder = np.minimum(
+                #     kps[2, dataset_keypoints.index('right_shoulder')],
+                #     kps[2, dataset_keypoints.index('left_shoulder')])
+                # mid_hip = (
+                #     kps[:2, dataset_keypoints.index('right_hip')] +
+                #     kps[:2, dataset_keypoints.index('left_hip')]) / 2.0
+                # sc_mid_hip = np.minimum(
+                #     kps[2, dataset_keypoints.index('right_hip')],
+                #     kps[2, dataset_keypoints.index('left_hip')])
+                # if (sc_mid_shoulder > kp_thresh and
+                #         kps[2, dataset_keypoints.index('nose')] > kp_thresh):
+                #     x = [mid_shoulder[0], kps[0, dataset_keypoints.index('nose')]]
+                #     y = [mid_shoulder[1], kps[1, dataset_keypoints.index('nose')]]
+                #     line = plt.plot(x, y)
+                #     plt.setp(
+                #         line, color=colors[len(kp_lines)], linewidth=1.0, alpha=0.7)
+                # if sc_mid_shoulder > kp_thresh and sc_mid_hip > kp_thresh:
+                #     x = [mid_shoulder[0], mid_hip[0]]
+                #     y = [mid_shoulder[1], mid_hip[1]]
+                #     line = plt.plot(x, y)
+                #     plt.setp(
+                #         line, color=colors[len(kp_lines) + 1], linewidth=1.0,
+                #         alpha=0.7)
 
     if gen_res_file==True:    
         pt_file.close()

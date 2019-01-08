@@ -16,7 +16,14 @@ inno_dict_all = {
 
     'annotations':[],
 
-    'categories': [{"supercategory": "Text", "id": 1, "name": "text_block"}, {"supercategory": "Text", "id": 2, "name": "confused"}]
+    # 'categories': [{"supercategory": "Text", "id": 1, "name": "text_block"}, {"supercategory": "Text", "id": 2, "name": "confused"}]
+    # 'categories': [{"supercategory": "Text", "id": 1, "name": "text_block"}]
+    'categories': [{"supercategory": "Text", 
+                    "id": 1, 
+                    "name": "text_block",
+                    "keypoints":['lefttop', 'righttop', 'rightbottom', 'leftbottom'],
+                    "skeleton":[[1,2],[2,3],[3,4],[4,1]]
+                    }]
 }
 
 dataset_dir = './data/icdar/icdar15/'
@@ -63,6 +70,7 @@ for _, _, files in os.walk(dataset_dir + state + '/'):
                             'iscrowd':0,
                             'image_id':0,
                             'bbox':[],
+                            'keypoints':[],
                             'category_id':1,
                             'id':0}
                 if '\xef\xbb\xbf'  in line:
@@ -73,8 +81,8 @@ for _, _, files in os.walk(dataset_dir + state + '/'):
                 word = line.split(',')[-1]
                 
                 if word == '###\r\n':
-                    # skip = 1
-                    anno_dict['category_id'] = 2  #confused words
+                    skip = 1
+                    # anno_dict['category_id'] = 2  #confused words
 
                 str_points = line.split(',')[:8]
                 points = map(int, str_points)
@@ -153,6 +161,11 @@ for _, _, files in os.walk(dataset_dir + state + '/'):
                 px = points[::2]
                 py = points[1::2]
                 anno_dict['bbox'] = [min(px), min(py), max(px)-min(px), max(py)-min(py)]
+
+                anno_dict['keypoints'] = [ px[0], py[0], 1,
+                                           px[1], py[1], 1, 
+                                           px[2], py[2], 1,
+                                           px[3], py[3], 1, ]
 
                 anno_dict['id'] = instance_id
                 instance_id = instance_id + 1

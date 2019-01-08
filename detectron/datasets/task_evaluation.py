@@ -135,8 +135,8 @@ def evaluate_keypoints(dataset, all_boxes, all_keyps, output_dir):
     """Evaluate human keypoint detection (i.e., 2D pose estimation)."""
     logger.info('Evaluating detections')
     not_comp = not cfg.TEST.COMPETITION_MODE
-    assert dataset.name.startswith('keypoints_coco_'), \
-        'Only COCO keypoints are currently supported'
+    # assert dataset.name.startswith('keypoints_coco_'), \
+    #     'Only COCO keypoints are currently supported'
     coco_eval = json_dataset_evaluator.evaluate_keypoints(
         dataset,
         all_boxes,
@@ -346,11 +346,11 @@ def _coco_eval_to_keypoint_results(coco_eval):
     res = _empty_keypoint_results()
     if coco_eval is not None:
         s = coco_eval.stats
-        res['keypoint']['AP'] = s[COCO_AP]
-        res['keypoint']['AP50'] = s[COCO_AP50]
-        res['keypoint']['AP75'] = s[COCO_AP75]
-        res['keypoint']['APm'] = s[COCO_KPS_APM]
-        res['keypoint']['APl'] = s[COCO_KPS_APL]
+        res['keypoint']['kpAP'] = s[COCO_AP]
+        res['keypoint']['kpAP50'] = s[COCO_AP50]
+        res['keypoint']['kpAP75'] = s[COCO_AP75]
+        res['keypoint']['kpAPm'] = s[COCO_KPS_APM]
+        res['keypoint']['kpAPl'] = s[COCO_KPS_APL]
     return res
 
 
@@ -413,11 +413,11 @@ def _empty_keypoint_results():
         'keypoint':
         OrderedDict(
             [
-                ('AP', -1),
-                ('AP50', -1),
-                ('AP75', -1),
-                ('APm', -1),
-                ('APl', -1),
+                ('kpAP', -1),
+                ('kpAP50', -1),
+                ('kpAP75', -1),
+                ('kpAPm', -1),
+                ('kpAPl', -1),
             ]
         )
     })

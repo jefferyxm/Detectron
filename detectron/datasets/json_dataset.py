@@ -286,6 +286,8 @@ class JsonDataset(object):
         # Thus far only the 'person' category has keypoints
         if 'person' in self.category_to_id_map:
             cat_info = self.COCO.loadCats([self.category_to_id_map['person']])
+        elif 'text_block' in self.category_to_id_map:
+            cat_info = self.COCO.loadCats([self.category_to_id_map['text_block']])
         else:
             return
 
@@ -296,15 +298,20 @@ class JsonDataset(object):
                 zip(keypoints, range(len(keypoints))))
             self.keypoints = keypoints
             self.num_keypoints = len(keypoints)
-            self.keypoint_flip_map = {
-                'left_eye': 'right_eye',
-                'left_ear': 'right_ear',
-                'left_shoulder': 'right_shoulder',
-                'left_elbow': 'right_elbow',
-                'left_wrist': 'right_wrist',
-                'left_hip': 'right_hip',
-                'left_knee': 'right_knee',
-                'left_ankle': 'right_ankle'}
+            # self.keypoint_flip_map = {
+            #     'left_eye': 'right_eye',
+            #     'left_ear': 'right_ear',
+            #     'left_shoulder': 'right_shoulder',
+            #     'left_elbow': 'right_elbow',
+            #     'left_wrist': 'right_wrist',
+            #     'left_hip': 'right_hip',
+            #     'left_knee': 'right_knee',
+            #     'left_ankle': 'right_ankle'}
+            self.keypoint_flip_map={
+                    'lefttop': 'righttop',
+                    'leftbottom': 'rightbottom'
+                }
+
 
     def _get_gt_keypoints(self, obj):
         """Return ground truth keypoints."""

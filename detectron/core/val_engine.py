@@ -137,6 +137,7 @@ def run_validation(val_model, val_dataset, val_roidb, cur_iter, val_output_dir, 
     # write the result to tensorboard
     tb_logger.write_scalars(val_results[cfg.TEST.DATASETS[0]]['box'], cur_iter)
     tb_logger.write_scalars(val_results[cfg.TEST.DATASETS[0]]['mask'], cur_iter)
+    tb_logger.write_scalars(val_results[cfg.TEST.DATASETS[0]]['keypoint'], cur_iter)
 
     # get AP and AR100 to compute Hmean
     box_AP = val_results[cfg.TEST.DATASETS[0]]['box']['boxAP']

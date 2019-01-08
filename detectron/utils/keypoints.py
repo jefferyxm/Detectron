@@ -31,35 +31,49 @@ def get_keypoints():
     """Get the COCO keypoints and their left/right flip coorespondence map."""
     # Keypoints are not available in the COCO json for the test split, so we
     # provide them here.
+
+    # keypoints = [
+    #     'nose',
+    #     'left_eye',
+    #     'right_eye',
+    #     'left_ear',
+    #     'right_ear',
+    #     'left_shoulder',
+    #     'right_shoulder',
+    #     'left_elbow',
+    #     'right_elbow',
+    #     'left_wrist',
+    #     'right_wrist',
+    #     'left_hip',
+    #     'right_hip',
+    #     'left_knee',
+    #     'right_knee',
+    #     'left_ankle',
+    #     'right_ankle'
+    # ]
+    # keypoint_flip_map = {
+    #     'left_eye': 'right_eye',
+    #     'left_ear': 'right_ear',
+    #     'left_shoulder': 'right_shoulder',
+    #     'left_elbow': 'right_elbow',
+    #     'left_wrist': 'right_wrist',
+    #     'left_hip': 'right_hip',
+    #     'left_knee': 'right_knee',
+    #     'left_ankle': 'right_ankle'
+    # }
+
     keypoints = [
-        'nose',
-        'left_eye',
-        'right_eye',
-        'left_ear',
-        'right_ear',
-        'left_shoulder',
-        'right_shoulder',
-        'left_elbow',
-        'right_elbow',
-        'left_wrist',
-        'right_wrist',
-        'left_hip',
-        'right_hip',
-        'left_knee',
-        'right_knee',
-        'left_ankle',
-        'right_ankle'
+        'lefttop',
+        'righttop',
+        'rightbottom',
+        'leftbottom',
     ]
+
     keypoint_flip_map = {
-        'left_eye': 'right_eye',
-        'left_ear': 'right_ear',
-        'left_shoulder': 'right_shoulder',
-        'left_elbow': 'right_elbow',
-        'left_wrist': 'right_wrist',
-        'left_hip': 'right_hip',
-        'left_knee': 'right_knee',
-        'left_ankle': 'right_ankle'
+        'lefttop': 'righttop',
+        'leftbottom': 'rightbottom'
     }
+
     return keypoints, keypoint_flip_map
 
 

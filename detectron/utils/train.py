@@ -86,7 +86,7 @@ def train_model(tb_logger=None):
             tb_logger.write_scalars(tb_stats, cur_iter)
 
         # run validation on dataset
-        if (cur_iter % 2000) == 0 and cur_iter > start_iter:
+        if ((cur_iter+1) % 1000) == 0 and cur_iter > start_iter:
             hmean = ve.run_validation(val_model, val_dataset, val_roidb, cur_iter, val_output_dir, tb_logger)
             if hmean > last_val_hmean:
                 tb_logger.write_scalars(dict(
