@@ -86,8 +86,9 @@ class TrainingStats(object):
         """Log the tracked statistics."""
         if (cur_iter % self.LOG_PERIOD == 0 or
                 cur_iter == cfg.SOLVER.MAX_ITER - 1):
-            stats = self.GetStats(cur_iter, lr)
+            stats, tb_stats = self.GetStats(cur_iter, lr)
             log_json_stats(stats)
+            return tb_stats
 
     def GetStats(self, cur_iter, lr):
         eta_seconds = self.iter_timer.average_time * (
@@ -107,6 +108,11 @@ class TrainingStats(object):
             ),
             mem=int(np.ceil(mem_usage / 1024 / 1024))
         )
+        tb_stats = dict(
+            loss = self.smoothed_total_loss.GetMedianValue()
+        )
         for k, v in self.smoothed_losses_and_metrics.items():
             stats[k] = v.GetMedianValue()
-        return stats
+            tb_stats[k] = v.GetMedianValue()
+            
+        return stats, tb_stats

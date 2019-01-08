@@ -46,12 +46,24 @@ from detectron.utils import lr_policy
 from detectron.utils.training_stats import TrainingStats
 import detectron.utils.env as envu
 import detectron.utils.net as nu
+import detectron.core.val_engine as ve
+from detectron.datasets import task_evaluation
 
 
-def train_model():
+def train_model(tb_logger=None):
     """Model training loop."""
     logger = logging.getLogger(__name__)
     model, weights_file, start_iter, checkpoints, output_dir = create_model()
+    checkpoints['best'] = os.path.join(output_dir, 'model_best.pkl')
+
+    val_model = ve.create_val_model()
+    val_dataset, val_roidb = ve.get_val_dataset()
+    val_output_dir = get_output_dir(cfg.TEST.DATASETS[0], training=False)
+    last_val_hmean = 0
+
+    tb_logger.write_graph(model)
+    tb_logger.write_graph(val_model)
+
     if 'final' in checkpoints:
         # The final model was found in the output directory, so nothing to do
         return checkpoints
@@ -69,7 +81,22 @@ def train_model():
             nu.print_net(model)
         training_stats.IterToc()
         training_stats.UpdateIterStats()
-        training_stats.LogIterStats(cur_iter, lr)
+
+        tb_stats = training_stats.LogIterStats(cur_iter, lr)
+        if cur_iter % 20 == 0:
+            tb_logger.write_scalars(tb_stats, cur_iter)
+
+        # run validation on dataset
+        if (cur_iter % 2000) == 0 and cur_iter > start_iter:
+            hmean = ve.run_validation(val_model, val_dataset, val_roidb, cur_iter, val_output_dir, tb_logger)
+            if hmean > last_val_hmean:
+                tb_logger.write_scalars(dict(
+                        best_hmean=hmean,
+                        best_iter_at=cur_iter
+                ), cur_iter)
+                if hmean > 0.4:
+                    nu.save_model_to_weights_file(checkpoints['best'], model)
+                last_val_hmean = hmean
 
         if (cur_iter + 1) % CHECKPOINT_PERIOD == 0 and cur_iter > start_iter:
             checkpoints[cur_iter] = os.path.join(
@@ -96,6 +123,7 @@ def train_model():
             envu.exit_on_error()
 
     # Save the final model
+    tb_logger.close()
     checkpoints['final'] = os.path.join(output_dir, 'model_final.pkl')
     nu.save_model_to_weights_file(checkpoints['final'], model)
     # Shutdown data loading threads
