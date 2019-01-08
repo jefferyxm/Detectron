@@ -327,10 +327,23 @@ def add_fpn_rpn_outputs(model, blobs_in, dim_in, spatial_scales):
 
     k_max = cfg.FPN.RPN_MAX_LEVEL  # coarsest level of pyramid
     k_min = cfg.FPN.RPN_MIN_LEVEL  # finest level of pyramid
-    assert len(blobs_in) == k_max - k_min + 1
+
+    # print(blobs_in)
+    # print(type(blobs_in))
+    # input()
+    # k_min = 2
+    # k_max = 4
+
+    # assert len(blobs_in) == k_max - k_min + 1
+
     for lvl in range(k_min, k_max + 1):
-        bl_in = blobs_in[k_max - lvl]  # blobs_in is in reversed order
-        sc = spatial_scales[k_max - lvl]  # in reversed order
+
+        # bl_in = blobs_in[k_max - lvl]  # blobs_in is in reversed order
+        # sc = spatial_scales[k_max - lvl]  # in reversed order
+
+        bl_in = blobs_in[::-1][lvl-k_min]
+        sc = spatial_scales[::-1][lvl-k_min]
+
         slvl = str(lvl)
 
         if lvl == k_min:
