@@ -355,6 +355,8 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                     gt_areas = (gt_rois[:, 2] - gt_rois[:, 0] + 1)*(gt_rois[:, 3]-gt_rois[:, 1] + 1)/(norm*norm)
                     if lvl == k_min:
                         valid_gtidx = np.where(gt_areas <= 2.0)[0]
+                    elif lvl == k_max:
+                        valid_gtidx = np.where(gt_areas >= 0.5)[0]
                     else:
                         valid_gtidx = np.where((gt_areas <= 2.0) & (gt_areas >= 0.5))[0]
                     valid_gts = gt_rois[valid_gtidx, :]
