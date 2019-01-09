@@ -112,9 +112,9 @@ def add_roi_2mlp_head(model, blob_in, dim_in, spatial_scale):
     )
     model.FC(roi_feat, 'fc6', dim_in * roi_size * roi_size, hidden_dim)
     model.Relu('fc6', 'fc6')
-    model.FC('fc6', 'fc7', hidden_dim, hidden_dim)
+    model.FC('fc6', 'fc7', hidden_dim, int(hidden_dim/2))
     model.Relu('fc7', 'fc7')
-    return 'fc7', hidden_dim
+    return 'fc7', int(hidden_dim/2)
 
 
 def add_roi_Xconv1fc_head(model, blob_in, dim_in, spatial_scale):

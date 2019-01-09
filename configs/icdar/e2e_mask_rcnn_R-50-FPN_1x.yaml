@@ -13,16 +13,16 @@ SOLVER:
   LR_POLICY: steps_with_decay
   BASE_LR: 0.0025  
   GAMMA: 0.1
-  MAX_ITER: 50000
-  STEPS: [0, 30000, 40000]
+  MAX_ITER: 90000
+  STEPS: [0, 30000, 60000]
 FPN:
   FPN_ON: True
   MULTILEVEL_ROIS: True
   MULTILEVEL_RPN: True
   RPN_ANCHOR_START_SIZE: 32
   DIM: 64
-  RPN_MAX_LEVEL: 4
   RPN_MIN_LEVEL: 2
+  RPN_MAX_LEVEL: 4
   ROI_MIN_LEVEL: 2
   ROI_MAX_LEVEL: 4
 FAST_RCNN:
@@ -30,6 +30,7 @@ FAST_RCNN:
   ROI_XFORM_METHOD: RoIAlign
   ROI_XFORM_RESOLUTION: 7
   ROI_XFORM_SAMPLING_RATIO: 2
+  MLP_HEAD_DIM: 256
 MRCNN:
   ROI_MASK_HEAD: mask_rcnn_heads.mask_rcnn_fcn_head_v1up4convs
   RESOLUTION: 28  # (output mask resolution) default 14
@@ -38,6 +39,7 @@ MRCNN:
   ROI_XFORM_SAMPLING_RATIO: 2  # default 0
   DILATION: 1  # default 2
   CONV_INIT: MSRAFill  # default GaussianFill
+  DIM_REDUCED: 32
   THRESH_BINARIZE: 0.5
 TRAIN:
   # WEIGHTS: https://s3-us-west-2.amazonaws.com/detectron/ImageNetPretrained/MSRA/R-50.pkl
@@ -48,7 +50,8 @@ TRAIN:
   BATCH_SIZE_PER_IM: 64
   RPN_PRE_NMS_TOP_N: 600  # Per FPN level
   RPN_POST_NMS_TOP_N: 600
-  IMS_PER_BATCH: 2
+  SNAPSHOT_ITERS: 10000
+  IMS_PER_BATCH: 4
   # USE_FLIPPED: False
 TEST:
   DATASETS: ('icdar_2015_val',)
