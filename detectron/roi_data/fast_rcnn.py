@@ -55,6 +55,11 @@ def get_fast_rcnn_blob_names(is_training=True):
         # this binary vector sepcifies the subset of active targets
         blob_names += ['bbox_inside_weights']
         blob_names += ['bbox_outside_weights']
+
+        # num of positive examples in a batch when traing faster rcnn
+        # using by focal loss
+        blob_names += ['num_pos_fast', 'num_nag_fast']
+
     if is_training and cfg.MODEL.MASK_ON:
         # 'mask_rois': RoIs sampled for training the mask prediction branch.
         # Shape is (#masks, 5) in format (batch_idx, x1, y1, x2, y2).
@@ -107,11 +112,22 @@ def get_fast_rcnn_blob_names(is_training=True):
 
 def add_fast_rcnn_blobs(blobs, im_scales, roidb):
     """Add blobs needed for training Fast R-CNN style models."""
+
     # Sample training RoIs from each image and append them to the blob lists
+    blob_names['num_pos_fast'], blob_names['num_nag_fast'] = 0.0, 0.0
+    
     for im_i, entry in enumerate(roidb):
-        frcn_blobs = _sample_rois(entry, im_scales[im_i], im_i)
+        frcn_blobs, num_pos_ex, num_nag_ex = _sample_rois(entry, im_scales[im_i], im_i)
+
+        blob_names['num_pos_fast'] += num_pos_ex
+        blob_names['num_nag_fast'] += num_nag_ex
+
         for k, v in frcn_blobs.items():
             blobs[k].append(v)
+
+    blob_names['num_pos_fast'] = blob_names['num_pos_fast'].astype(np.float32)
+    blob_names['num_nag_fast'] = blob_names['num_nag_fast'].astype(np.float32)
+
     # Concat the training blob lists into tensors
     for k, v in blobs.items():
         if isinstance(v, list) and len(v) > 0:
@@ -203,7 +219,7 @@ def _sample_rois(roidb, im_scale, batch_idx):
             blob_dict, roidb, fg_rois_per_image, fg_inds, im_scale, batch_idx
         )
 
-    return blob_dict
+    return blob_dict, fg_rois_per_this_image+1.0, bg_rois_per_this_image+1.0
 
 
 def _expand_bbox_targets(bbox_target_data):

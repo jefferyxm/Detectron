@@ -511,19 +511,30 @@ def add_fpn_rpn_losses(model):
         normalize",
         "(int) default 1; if true, divide the loss by the number of targets > "
         "-1.")
-        it seems that normalize should be 1, so that it could be normalized by the actually count of target
         """
-        loss_adarpn_cls_fpn = model.net.SigmoidCrossEntropyLoss(
-            ['adarpn_cls_logits_fpn' + slvl, 'adarpn_labels_int32_fpn' + slvl],
+        # loss_adarpn_cls_fpn = model.net.SigmoidCrossEntropyLoss(
+        #     ['adarpn_cls_logits_fpn' + slvl, 'adarpn_labels_int32_fpn' + slvl],
+        #     'loss_adarpn_cls_fpn' + slvl,
+        #     normalize=0,
+        #     scale=(
+        #         model.GetLossScale() / cfg.TRAIN.RPN_BATCH_SIZE_PER_IM /
+        #         cfg.TRAIN.IMS_PER_BATCH
+        #     )
+        # )
+        
+        """
+        focal loss
+        """
+        loss_adarpn_cls_fpn = model.net.SigmoidFocalLoss(
+            ['adarpn_cls_logits_fpn' + slvl, 'adarpn_labels_int32_fpn' + slvl, 'fg_num_batch'],
             'loss_adarpn_cls_fpn' + slvl,
-            normalize=0,
-            scale=(
-                model.GetLossScale() / (cfg.TRAIN.RPN_BATCH_SIZE_PER_IM  * 15 / 16 )/
-                cfg.TRAIN.IMS_PER_BATCH
-            )
-            # normalize=1,
-            # scale = model.GetLossScale()
+            gamma=cfg.RETINANET.LOSS_GAMMA, #default value 2
+            alpha=cfg.RETINANET.LOSS_ALPHA, #default value 0.25
+            scale=model.GetLossScale(),
+            num_classes=1                   # RPN only have two class
         )
+
+
         loss_adarpn_bbox_wh_fpn = model.net.SmoothL1Loss(
             [
                 'adarpn_bbox_wh_pred_fpn' + slvl, 'adarpn_bbox_wh_fpn' + slvl,
@@ -552,6 +563,8 @@ def add_fpn_rpn_losses(model):
             blob_utils.
             get_loss_gradients(model, [loss_adarpn_cls_fpn, loss_adarpn_bbox_wh_fpn, loss_adarpn_bbox_fpn])
         )
+
+        model.AddMetrics(['fg_num_batch', 'bg_num_batch'])
         model.AddLosses(['loss_adarpn_cls_fpn' + slvl, 'loss_adarpn_bbox_wh_fpn' + slvl, 'loss_adarpn_bbox_fpn' + slvl])
     return loss_gradients
 

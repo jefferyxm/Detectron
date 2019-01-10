@@ -58,6 +58,9 @@ def get_rpn_blob_names(is_training=True):
                     'adarpn_bbox_inside_weights_wide_fpn' + str(lvl),
                     'adarpn_bbox_outside_weights_wide_fpn' + str(lvl)
                 ]
+
+            # fg_num used by focal loss
+            blob_names += ['fg_num_batch', 'bg_num_batch'] 
         else:
             # Single level RPN blobs
             blob_names += [
@@ -319,6 +322,7 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
             anchor_point = shifts + [center_x, center_y]
             anchor_points.append(anchor_point)
 
+    blobs['fg_num_batch', 'bg_num_batch'] = 0.0, 0.0
     for im_i, entry in enumerate(roidb):
         target_sum = 0
         scale = im_scales[im_i]
@@ -330,6 +334,9 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
         gt_rois = entry['boxes'][gt_inds, :] * scale
         im_info = np.array([[im_height, im_width, scale]], dtype=np.float32)
         blobs['im_info'].append(im_info)
+
+        # batch multiple factor for each fpn level
+        example_level_fraction=[0.5, 0.3, 0.2]
 
         # Add RPN targets
         if cfg.FPN.FPN_ON and cfg.FPN.MULTILEVEL_RPN:
@@ -485,25 +492,25 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
 
                 # subsampling positive or negetive examples
                 fg_idx = np.where(this_level_label==1)[0]
-                fg_num = len(fg_idx)
-                example_this_level = int(cfg.TRAIN.RPN_BATCH_SIZE_PER_IM / (2.**(lvl - k_min + 1)))
+                fg_num_this_level = len(fg_idx)
+                example_this_level = int(cfg.TRAIN.RPN_BATCH_SIZE_PER_IM * example_level_fraction[lvl - k_min])
                 fg_example_this_level = int(example_this_level * cfg.TRAIN.RPN_FG_FRACTION)
-                if fg_num > fg_example_this_level:
+                if fg_num_this_level > fg_example_this_level:
                     # subsampling positive
-                    disable_inds = npr.choice(fg_idx, size=(fg_num - fg_example_this_level), replace=False)
+                    disable_inds = npr.choice(fg_idx, size=(fg_num_this_level - fg_example_this_level), replace=False)
                     this_level_label[disable_inds] = -1
                 fg_idx = np.where(this_level_label == 1)[0]
-                fg_num = len(fg_idx)
+                fg_num_this_level = len(fg_idx)
 
 
                 # add nagative samples
-                num_bg = example_this_level - fg_num
+                bg_num_this_level = example_this_level - fg_num_this_level
                 bg_map = np.zeros((this_level_ap.shape[0],), dtype=np.int32)
                 bg_map[valid_apidx] = 1
                 bg_idx = np.where(bg_map==0)[0]
                 this_level_label[bg_idx] = -1
-                if len(bg_idx) > num_bg:
-                    enable_inds = bg_idx[npr.randint(len(bg_idx), size=num_bg)]
+                if len(bg_idx) > bg_num_this_level:
+                    enable_inds = bg_idx[npr.randint(len(bg_idx), size=bg_num_this_level)]
                     this_level_label[enable_inds] = 0
                 bg_idx = np.where(this_level_label == 0)[0]
                 
@@ -518,10 +525,10 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                 this_level_box_outside_weight = np.zeros((this_level_ap.shape[0], 4), dtype=np.float32)
 
                 # suppose that there always 4 fpn_rpn levels
-                this_level_box_outside_weight[this_level_label == 1, :] = 1.0 / (example_this_level * 15 / 16)
-                this_level_box_outside_weight[this_level_label == 0, :] = 1.0 / (example_this_level * 15 / 16)
-                this_level_wh_outside_weight[this_level_label == 1, :] = 1.0 / (example_this_level * 15 / 16)
-                this_level_wh_outside_weight[this_level_label == 0, :] = 1.0 / (example_this_level * 15 / 16)
+                this_level_box_outside_weight[this_level_label == 1, :] = 1.0 / cfg.TRAIN.RPN_BATCH_SIZE_PER_IM 
+                this_level_box_outside_weight[this_level_label == 0, :] = 1.0 / cfg.TRAIN.RPN_BATCH_SIZE_PER_IM 
+                this_level_wh_outside_weight[this_level_label == 1, :] = 1.0 / cfg.TRAIN.RPN_BATCH_SIZE_PER_IM
+                this_level_wh_outside_weight[this_level_label == 0, :] = 1.0 / cfg.TRAIN.RPN_BATCH_SIZE_PER_IM
 
                 # reshape as blob shape
                 field_stride = 2.**lvl
@@ -540,7 +547,9 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                 this_level_box_inside_weight= this_level_box_inside_weight.reshape((1, H, W, 4)).transpose(0,3,1,2)
                 this_level_box_outside_weight= this_level_box_outside_weight.reshape((1, H, W, 4)).transpose(0,3,1,2)
 
-                
+                blobs['fg_num_batch'] += fg_num_this_level
+                blobs['bg_num_batch'] += bg_num_this_level
+
                 DBG = 0
                 if DBG:
                     print(this_level_label.shape)
@@ -557,7 +566,6 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                     plt.imshow(this_level_label[0,0,:,:])
                     plt.show()
                 
-
                 # add into blobs
                 blobs['adarpn_labels_int32_wide_fpn' + str(lvl)].append(this_level_label)
                 blobs['adarpn_bbox_wh_wide_fpn' + str(lvl)].append(this_level_wh)
@@ -568,9 +576,10 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                 blobs['adarpn_bbox_inside_weights_wide_fpn' + str(lvl)].append(this_level_box_inside_weight)
                 blobs['adarpn_bbox_outside_weights_wide_fpn' + str(lvl)].append(this_level_box_outside_weight)
 
-
-    
-                
+    # num of fg in one batch
+    blobs['fg_num_batch'] = blobs['fg_num_batch'].astype(np.float32)
+    blobs['bg_num_batch'] = blobs['bg_num_batch'].astype(np.float32)
+            
     for k, v in blobs.items():
         if isinstance(v, list) and len(v) > 0:
             blobs[k] = np.concatenate(v)
