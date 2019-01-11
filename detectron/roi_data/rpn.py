@@ -357,6 +357,8 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                 this_level_wh = np.zeros((this_level_ap.shape[0], 2), dtype=np.float32)
                 this_level_box_delta = np.zeros((this_level_ap.shape[0], 4), dtype=np.float32)
 
+                this_level_wh_ratio = np.empty((this_level_ap.shape[0], ), dtype=np.float32)
+
                 if len(gt_rois) > 0:
                     ''' compute with vector to speed up'''
                     # filter suitable gts for this fpn level
@@ -504,6 +506,13 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                 fg_idx = np.where(this_level_label == 1)[0]
                 fg_num_this_level = len(fg_idx)
 
+                # copy
+                this_level_wh_ratio[:] = this_level_wh[:, 1]
+                this_level_wh_ratio[this_level_wh_ratio==0]=-1
+                this_level_wh_ratio[:] = this_level_wh[:, 0]/this_level_wh_ratio[:]
+                # regard w/h=0.67 as hard example
+                hard_example_idx = np.where(this_level_wh_ratio > 0.67)[0]
+                hard_factor = 4
 
                 # add nagative samples
                 bg_num_this_level = example_this_level - fg_num_this_level
@@ -520,12 +529,20 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                 this_level_wh_inside_weight = np.zeros((this_level_ap.shape[0], 2), dtype=np.float32)
                 this_level_wh_inside_weight[this_level_label == 1, :] = (fpn_wh_weight_factor[lvl-k_min], 
                                                                             fpn_wh_weight_factor[lvl-k_min])
+                
+                this_level_wh_inside_weight[hard_example_idx, :] = (fpn_wh_weight_factor[lvl-k_min]*hard_factor, 
+                                                                            fpn_wh_weight_factor[lvl-k_min]*hard_factor)
 
                 this_level_box_inside_weight = np.zeros((this_level_ap.shape[0], 4), dtype=np.float32)
                 this_level_box_inside_weight[this_level_label == 1, :] = (fpn_wh_weight_factor[lvl-k_min], 
                                                                             fpn_wh_weight_factor[lvl-k_min], 
                                                                             fpn_wh_weight_factor[lvl-k_min], 
                                                                             fpn_wh_weight_factor[lvl-k_min])
+
+                this_level_box_inside_weight[hard_example_idx, :] = (fpn_wh_weight_factor[lvl-k_min]*hard_factor, 
+                                                                        fpn_wh_weight_factor[lvl-k_min]*hard_factor, 
+                                                                        fpn_wh_weight_factor[lvl-k_min]*hard_factor, 
+                                                                        fpn_wh_weight_factor[lvl-k_min]*hard_factor)
 
                 this_level_wh_outside_weight = np.zeros((this_level_ap.shape[0], 2), dtype=np.float32)
                 this_level_box_outside_weight = np.zeros((this_level_ap.shape[0], 4), dtype=np.float32)
