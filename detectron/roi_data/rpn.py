@@ -322,7 +322,7 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
             anchor_point = shifts + [center_x, center_y]
             anchor_points.append(anchor_point)
 
-    blobs['fg_num_batch', 'bg_num_batch'] = 0.0, 0.0
+    blobs['fg_num_batch'], blobs['bg_num_batch'] = 0.0, 0.0
     for im_i, entry in enumerate(roidb):
         target_sum = 0
         scale = im_scales[im_i]
@@ -336,7 +336,9 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
         blobs['im_info'].append(im_info)
 
         # batch multiple factor for each fpn level
-        example_level_fraction=[0.5, 0.3, 0.2]
+        example_level_fraction=[0.6, 0.3, 0.1]
+        fpn_score_weight_factor=[1.0, 1.4, 2.0]
+        fpn_wh_weight_factor=[4.0, 2.0, 1.0]
 
         # Add RPN targets
         if cfg.FPN.FPN_ON and cfg.FPN.MULTILEVEL_RPN:
@@ -516,10 +518,14 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                 
 
                 this_level_wh_inside_weight = np.zeros((this_level_ap.shape[0], 2), dtype=np.float32)
-                this_level_wh_inside_weight[this_level_label == 1, :] = (1.0, 1.0)
+                this_level_wh_inside_weight[this_level_label == 1, :] = (fpn_wh_weight_factor[lvl-k_min], 
+                                                                            fpn_wh_weight_factor[lvl-k_min])
 
                 this_level_box_inside_weight = np.zeros((this_level_ap.shape[0], 4), dtype=np.float32)
-                this_level_box_inside_weight[this_level_label == 1, :] = (1.0, 1.0, 1.0, 1.0)
+                this_level_box_inside_weight[this_level_label == 1, :] = (fpn_wh_weight_factor[lvl-k_min], 
+                                                                            fpn_wh_weight_factor[lvl-k_min], 
+                                                                            fpn_wh_weight_factor[lvl-k_min], 
+                                                                            fpn_wh_weight_factor[lvl-k_min])
 
                 this_level_wh_outside_weight = np.zeros((this_level_ap.shape[0], 2), dtype=np.float32)
                 this_level_box_outside_weight = np.zeros((this_level_ap.shape[0], 4), dtype=np.float32)
@@ -577,8 +583,8 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                 blobs['adarpn_bbox_outside_weights_wide_fpn' + str(lvl)].append(this_level_box_outside_weight)
 
     # num of fg in one batch
-    blobs['fg_num_batch'] = blobs['fg_num_batch'].astype(np.float32)
-    blobs['bg_num_batch'] = blobs['bg_num_batch'].astype(np.float32)
+    blobs['fg_num_batch'] = np.array([blobs['fg_num_batch']], dtype=np.float32)
+    blobs['bg_num_batch'] = np.array([blobs['bg_num_batch']], dtype=np.float32)
             
     for k, v in blobs.items():
         if isinstance(v, list) and len(v) > 0:

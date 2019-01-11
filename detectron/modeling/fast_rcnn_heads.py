@@ -74,20 +74,20 @@ def add_fast_rcnn_outputs(model, blob_in, dim):
 
 def add_fast_rcnn_losses(model):
     """Add losses for RoI classification and bounding box regression."""
-    # cls_prob, loss_cls = model.net.SoftmaxWithLoss(
-    #     ['cls_score', 'labels_int32'], ['cls_prob', 'loss_cls'],
-    #     scale=model.GetLossScale()
-    # )
+    cls_prob, loss_cls = model.net.SoftmaxWithLoss(
+        ['cls_score', 'labels_int32'], ['cls_prob', 'loss_cls'],
+        scale=model.GetLossScale()
+    )
 
     # focal loss for softmax
-    loss_cls, cls_prob = model.net.SoftmaxFocalLoss(
-        ['cls_score', 'labels_int32', 'num_pos_fast'],
-        ['loss_cls', 'cls_prob'],
-        gamma=cfg.RETINANET.LOSS_GAMMA,
-        alpha=cfg.RETINANET.LOSS_ALPHA,
-        scale=model.GetLossScale(),
-        num_classes=model.num_classes
-    )
+    # loss_cls, cls_prob = model.net.SoftmaxFocalLoss(
+    #     ['cls_score', 'labels_int32', 'num_pos_fast'],
+    #     ['loss_cls', 'cls_prob'],
+    #     gamma=cfg.RETINANET.LOSS_GAMMA,
+    #     alpha=cfg.RETINANET.LOSS_ALPHA,
+    #     scale=model.GetLossScale(),
+    #     num_classes=model.num_classes
+    # )
 
     loss_bbox = model.net.SmoothL1Loss(
         [
@@ -101,6 +101,7 @@ def add_fast_rcnn_losses(model):
     model.Accuracy(['cls_prob', 'labels_int32'], 'accuracy_cls')
     model.AddLosses(['loss_cls', 'loss_bbox'])
     model.AddMetrics('accuracy_cls')
+    model.AddMetrics(['num_pos_fast','num_nag_fast'])
     return loss_gradients
 
 # ---------------------------------------------------------------------------- #

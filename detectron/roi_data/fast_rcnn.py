@@ -114,19 +114,19 @@ def add_fast_rcnn_blobs(blobs, im_scales, roidb):
     """Add blobs needed for training Fast R-CNN style models."""
 
     # Sample training RoIs from each image and append them to the blob lists
-    blob_names['num_pos_fast'], blob_names['num_nag_fast'] = 0.0, 0.0
+    blobs['num_pos_fast'], blobs['num_nag_fast'] = 0.0, 0.0
     
     for im_i, entry in enumerate(roidb):
         frcn_blobs, num_pos_ex, num_nag_ex = _sample_rois(entry, im_scales[im_i], im_i)
 
-        blob_names['num_pos_fast'] += num_pos_ex
-        blob_names['num_nag_fast'] += num_nag_ex
+        blobs['num_pos_fast'] += num_pos_ex
+        blobs['num_nag_fast'] += num_nag_ex
 
         for k, v in frcn_blobs.items():
             blobs[k].append(v)
 
-    blob_names['num_pos_fast'] = blob_names['num_pos_fast'].astype(np.float32)
-    blob_names['num_nag_fast'] = blob_names['num_nag_fast'].astype(np.float32)
+    blobs['num_pos_fast'] = np.array([blobs['num_pos_fast']], dtype=np.float32)
+    blobs['num_nag_fast'] = np.array([blobs['num_nag_fast']], dtype=np.float32)
 
     # Concat the training blob lists into tensors
     for k, v in blobs.items():
