@@ -306,6 +306,9 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
 
         for lvl in range(k_min, k_max + 1):
             field_stride = 2.**lvl
+
+            # decrease filed_stride to get large scale anchor points
+            filed_stride = filed_stride/2
             
             # 1, got all anchor center points
             fpn_max_size = cfg.FPN.COARSEST_STRIDE * np.ceil(
