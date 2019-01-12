@@ -87,14 +87,15 @@ def train_model(tb_logger=None):
             tb_logger.write_scalars(tb_stats, cur_iter)
 
         # run validation on dataset
-        if (cur_iter % 2000) == 0 and cur_iter > start_iter:
-            hmean = ve.run_validation(val_model, val_dataset, val_roidb, cur_iter, val_output_dir, tb_logger)
+        # if (cur_iter % 2000) == 0 and cur_iter > start_iter:
+        if (cur_iter % 2000) == 0:
+            hmean = ve.run_validation_icdar(val_model, val_dataset, val_roidb, cur_iter, val_output_dir, tb_logger)
             if hmean > last_val_hmean:
                 tb_logger.write_scalars(dict(
                         best_hmean=hmean,
                         best_iter_at=cur_iter
                 ), cur_iter)
-                if hmean > 0.4:
+                if hmean > 0.75:
                     nu.save_model_to_weights_file(checkpoints['best'], model)
                 last_val_hmean = hmean
 
@@ -109,14 +110,6 @@ def train_model(tb_logger=None):
             # SGD iterations
             training_stats.ResetIterTimer()
         
-        # validation every 1000 iterations(2 epoch of training set)
-        # if cur_iter%1000 == 0:
-        #     vald_loss = run_validation_set()
-        #     if vald_loss < last_vald_loss:
-        #         nu.save_model_to_weights_file(checkpoints['best'], model)
-        #         last_vald_loss = vald_loss
-
-
         if np.isnan(training_stats.iter_total_loss):
             logger.critical('Loss is NaN, exiting...')
             model.roi_data_loader.shutdown()

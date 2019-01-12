@@ -426,3 +426,70 @@ def vis_one_image(
     output_name = os.path.basename(im_name) + '.' + ext
     fig.savefig(os.path.join(output_dir, '{}'.format(output_name)), dpi=dpi)
     plt.close('all')
+
+
+
+def post_process_detection(
+        im, im_name, pt_dir, boxes, segms=None, keypoints=None, thresh=0.9,
+        kp_thresh=2, gen_res_file=False):
+    # get points more fast
+
+    if not os.path.exists(pt_dir):
+        os.makedirs(pt_dir)
+
+    if gen_res_file==True:
+        img_index = im_name.split('_')[2]
+        pt_file = open(pt_dir + 'res_img_' + img_index + '.txt', 'w')
+
+    if isinstance(boxes, list):
+        boxes, segms, keypoints, classes = convert_from_cls_format(
+            boxes, segms, keypoints)
+
+    if (boxes is None or boxes.shape[0] == 0 or max(boxes[:, 4]) < thresh):
+        if gen_res_file==True:
+            pt_file.close()
+        return
+
+    if segms is not None and len(segms) > 0:
+        masks = mask_util.decode(segms)
+
+    if boxes is None:
+        sorted_inds = [] # avoid crash when 'boxes' is None
+    else:
+        # Display in largest to smallest order to reduce occlusion
+        areas = (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1])
+        sorted_inds = np.argsort(-areas)
+
+    mask_color_id = 0
+    for i in sorted_inds:
+        
+        # only show text class
+        if classes[i] == 1:
+
+            bbox = boxes[i, :4]
+            score = boxes[i, -1]
+            if score < thresh:
+                continue
+
+            # show mask
+            if segms is not None and len(segms) > i:
+                e = masks[:, :, i]
+                _, contour, hier = cv2.findContours(
+                    e.copy(), cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
+
+                for c in contour:
+                    c = c.reshape((-1,2))
+                    rotRect = cv2.minAreaRect(c)
+                    minRect = np.int0(cv2.boxPoints(rotRect))
+                    
+                    px = minRect[:,0]
+                    py = minRect[:,1]
+
+                    line = str(px[0]) + ',' + str(py[0]) + ',' + str(px[1]) + ',' + str(py[1]) + ',' + \
+                            str(px[2]) + ',' + str(py[2]) + ',' + str(px[3]) + ',' + str(py[3]) + '\r\n'
+
+                    if gen_res_file==True:  
+                        pt_file.write(line)
+
+    if gen_res_file==True:    
+        pt_file.close()
