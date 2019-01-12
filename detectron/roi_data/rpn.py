@@ -308,7 +308,7 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
             field_stride = 2.**lvl
 
             # decrease filed_stride to get large scale anchor points
-            filed_stride = filed_stride/2
+            field_stride = field_stride/2
             
             # 1, got all anchor center points
             fpn_max_size = cfg.FPN.COARSEST_STRIDE * np.ceil(
@@ -558,6 +558,8 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
 
                 # reshape as blob shape
                 field_stride = 2.**lvl
+                field_stride = field_stride/2
+
                 fpn_max_size = cfg.FPN.COARSEST_STRIDE * np.ceil(
                     cfg.TRAIN.MAX_SIZE / float(cfg.FPN.COARSEST_STRIDE))
                 field_size = int(np.ceil(fpn_max_size / float(field_stride)))
