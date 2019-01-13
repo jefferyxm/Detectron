@@ -128,16 +128,16 @@ def im_detect_all(model, im, box_proposals, timers=None, entry=None):
 
     DBG = 0
     if DBG:
+        # adarpn_cls_logits_fpn2
+        # adarpn_cls_probs_fpn2
+
         rois1 = workspace.FetchBlob(core.ScopedName('adarpn_cls_probs_fpn2'))
         rois2 = workspace.FetchBlob(core.ScopedName('adarpn_cls_probs_fpn3'))
         rois3 = workspace.FetchBlob(core.ScopedName('adarpn_cls_probs_fpn4'))
-        rois4 = workspace.FetchBlob(core.ScopedName('adarpn_cls_probs_fpn5'))
-        # rpn_labels_int32_fpn6
 
         print(rois1.shape)
         print(rois2.shape)
         print(rois3.shape)
-        print(rois4.shape)
 
         # show feature map of the RPN score output
         import matplotlib.pyplot as plt
@@ -147,8 +147,6 @@ def im_detect_all(model, im, box_proposals, timers=None, entry=None):
         plt.imshow(rois2[0][0], cmap=plt.cm.hot)
         plt.subplot(2,3,3)
         plt.imshow(rois3[0][0], cmap=plt.cm.hot)
-        plt.subplot(2,3,4)
-        plt.imshow(rois4[0][0], cmap=plt.cm.hot)
 
 
         # import matplotlib.pyplot as plt
