@@ -515,7 +515,7 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                 this_level_wh_ratio[:] = this_level_wh[:, 0]/this_level_wh_ratio[:]
                 # regard w/h=0.67 as hard example
                 hard_example_idx = np.where(this_level_wh_ratio > 0.67)[0]
-                hard_factor = 4
+                hard_factor = 1
 
                 # add nagative samples
                 bg_num_this_level = example_this_level - fg_num_this_level
