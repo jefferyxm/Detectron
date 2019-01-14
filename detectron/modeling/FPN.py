@@ -531,27 +531,27 @@ def add_fpn_rpn_losses(model):
         "(int) default 1; if true, divide the loss by the number of targets > "
         "-1.")
         """
-        # loss_adarpn_cls_fpn = model.net.SigmoidCrossEntropyLoss(
-        #     ['adarpn_cls_logits_fpn' + slvl, 'adarpn_labels_int32_fpn' + slvl],
-        #     'loss_adarpn_cls_fpn' + slvl,
-        #     normalize=0,
-        #     scale=(
-        #         model.GetLossScale() / cfg.TRAIN.RPN_BATCH_SIZE_PER_IM /
-        #         cfg.TRAIN.IMS_PER_BATCH
-        #     )
-        # )
-        
-        """
-        focal loss
-        """
-        loss_adarpn_cls_fpn = model.net.SigmoidFocalLoss(
-            ['adarpn_cls_logits_fpn' + slvl, 'adarpn_labels_int32_fpn' + slvl, 'fg_num_batch'],
+        loss_adarpn_cls_fpn = model.net.SigmoidCrossEntropyLoss(
+            ['adarpn_cls_logits_fpn' + slvl, 'adarpn_labels_int32_fpn' + slvl],
             'loss_adarpn_cls_fpn' + slvl,
-            gamma=cfg.RETINANET.LOSS_GAMMA, #default value 2
-            alpha=cfg.RETINANET.LOSS_ALPHA, #default value 0.25
-            scale=model.GetLossScale(),
-            num_classes=1                   # RPN only have two class
+            normalize=0,
+            scale=(
+                model.GetLossScale() / cfg.TRAIN.RPN_BATCH_SIZE_PER_IM /
+                cfg.TRAIN.IMS_PER_BATCH
+            )
         )
+        
+        # """
+        # focal loss
+        # """
+        # loss_adarpn_cls_fpn = model.net.SigmoidFocalLoss(
+        #     ['adarpn_cls_logits_fpn' + slvl, 'adarpn_labels_int32_fpn' + slvl, 'fg_num_batch'],
+        #     'loss_adarpn_cls_fpn' + slvl,
+        #     gamma=cfg.RETINANET.LOSS_GAMMA, #default value 2
+        #     alpha=cfg.RETINANET.LOSS_ALPHA, #default value 0.25
+        #     scale=model.GetLossScale(),
+        #     num_classes=1                   # RPN only have two class
+        # )
 
 
         loss_adarpn_bbox_wh_fpn = model.net.SmoothL1Loss(
