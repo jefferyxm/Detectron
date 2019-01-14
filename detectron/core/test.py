@@ -281,6 +281,12 @@ def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None):
 
     # Softmax class probabilities
     scores = workspace.FetchBlob(core.ScopedName('cls_prob')).squeeze()
+
+    # modify for sigmoid out put 
+    scores_bg = 1 - scores
+    scores = np.array([scores, scores_bg], dtype=np.float32)
+    scores = np.transpose(scores)
+
     # In case there is 1 proposal
     scores = scores.reshape([-1, scores.shape[-1]])
 

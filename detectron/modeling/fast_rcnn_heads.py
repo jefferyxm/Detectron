@@ -50,14 +50,18 @@ def add_fast_rcnn_outputs(model, blob_in, dim):
         blob_in,
         'cls_score',
         dim,
-        model.num_classes,
+        model.num_classes-1,
         weight_init=gauss_fill(0.01),
         bias_init=const_fill(0.0)
     )
     if not model.train:  # == if test
         # Only add softmax when testing; during training the softmax is combined
         # with the label cross entropy loss for numerical stability
-        model.Softmax('cls_score', 'cls_prob', engine='CUDNN')
+
+        # model.Softmax('cls_score', 'cls_prob', engine='CUDNN')
+
+        cls_prob = model.net.Sigmoid('cls_score', 'cls_prob')
+
     # Box regression layer
     num_bbox_reg_classes = (
         2 if cfg.MODEL.CLS_AGNOSTIC_BBOX_REG else model.num_classes
@@ -74,19 +78,30 @@ def add_fast_rcnn_outputs(model, blob_in, dim):
 
 def add_fast_rcnn_losses(model):
     """Add losses for RoI classification and bounding box regression."""
-    cls_prob, loss_cls = model.net.SoftmaxWithLoss(
-        ['cls_score', 'labels_int32'], ['cls_prob', 'loss_cls'],
-        scale=model.GetLossScale()
+
+    # cls_prob, loss_cls = model.net.SoftmaxWithLoss(
+    #     ['cls_score', 'labels_int32'], ['cls_prob', 'loss_cls'],
+    #     scale=model.GetLossScale()
+    # )
+
+
+    loss_cls = model.net.SigmoidCrossEntropyLoss(
+        ['cls_score', 'labels_int32'],
+        'loss_cls',
+        normalize=0,
+        scale=(
+            model.GetLossScale() / cfg.TRAIN.BATCH_SIZE_PER_IM /
+            cfg.TRAIN.IMS_PER_BATCH
+        )
     )
 
-    # focal loss for softmax
-    # loss_cls, cls_prob = model.net.SoftmaxFocalLoss(
+    # loss_cls = model.net.SigmoidFocalLoss(
     #     ['cls_score', 'labels_int32', 'num_pos_fast'],
-    #     ['loss_cls', 'cls_prob'],
-    #     gamma=cfg.RETINANET.LOSS_GAMMA,
-    #     alpha=cfg.RETINANET.LOSS_ALPHA,
+    #     'loss_cls',
+    #     gamma=cfg.RETINANET.LOSS_GAMMA, #default value 2
+    #     alpha=cfg.RETINANET.LOSS_ALPHA, #default value 0.25
     #     scale=model.GetLossScale(),
-    #     num_classes=model.num_classes
+    #     num_classes=1                   
     # )
 
     loss_bbox = model.net.SmoothL1Loss(
@@ -98,9 +113,9 @@ def add_fast_rcnn_losses(model):
         scale=model.GetLossScale()
     )
     loss_gradients = blob_utils.get_loss_gradients(model, [loss_cls, loss_bbox])
-    model.Accuracy(['cls_prob', 'labels_int32'], 'accuracy_cls')
+    # model.Accuracy(['cls_prob', 'labels_int32'], 'accuracy_cls')
     model.AddLosses(['loss_cls', 'loss_bbox'])
-    model.AddMetrics('accuracy_cls')
+    # model.AddMetrics('accuracy_cls')
     model.AddMetrics(['num_pos_fast','num_nag_fast'])
     return loss_gradients
 

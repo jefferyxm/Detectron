@@ -2,7 +2,7 @@
 export CUDA_VISIBLE_DEVICES=0
 python2 tools/train_net.py \
     --cfg configs/icdar/e2e_mask_rcnn_R-50-FPN_1x.yaml \
-    OUTPUT_DIR data/up_ada_exp03
+    OUTPUT_DIR data/up_ada_exp04
 
 
 # ---------------ada_exp01------------------- 
@@ -33,6 +33,9 @@ python2 tools/train_net.py \
 # based on up_ada_exp02
 # do not use focal loss on rpn
 # verify the focal loss
+
+# --------------up_ada_exp04----------------
+# cls using sigmoid
 
 
     

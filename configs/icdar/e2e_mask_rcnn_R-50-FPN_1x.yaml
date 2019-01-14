@@ -13,14 +13,14 @@ SOLVER:
   LR_POLICY: steps_with_decay
   BASE_LR: 0.0025  
   GAMMA: 0.1
-  MAX_ITER: 90000
+  MAX_ITER: 100000
   STEPS: [0, 60000, 80000]
 FPN:
   FPN_ON: True
   MULTILEVEL_ROIS: True
   MULTILEVEL_RPN: True
   RPN_ANCHOR_START_SIZE: 32
-  DIM: 64
+  DIM: 60
   RPN_MIN_LEVEL: 2
   RPN_MAX_LEVEL: 4
   ROI_MIN_LEVEL: 2
@@ -39,7 +39,7 @@ MRCNN:
   ROI_XFORM_SAMPLING_RATIO: 2  # default 0
   DILATION: 1  # default 2
   CONV_INIT: MSRAFill  # default GaussianFill
-  DIM_REDUCED: 64
+  DIM_REDUCED: 60
   THRESH_BINARIZE: 0.5
 TRAIN:
   # WEIGHTS: https://s3-us-west-2.amazonaws.com/detectron/ImageNetPretrained/MSRA/R-50.pkl
