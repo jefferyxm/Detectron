@@ -2,7 +2,7 @@
 export CUDA_VISIBLE_DEVICES=0
 python2 tools/train_net.py \
     --cfg configs/icdar/e2e_mask_rcnn_R-50-FPN_1x.yaml \
-    OUTPUT_DIR data/up_ada_exp04
+    OUTPUT_DIR data/up_ada_exp04_2
 
 
 # ---------------ada_exp01------------------- 
@@ -37,5 +37,7 @@ python2 tools/train_net.py \
 # --------------up_ada_exp04----------------
 # cls using sigmoid
 
-
-    
+# -------------up_ada_exp04_2-----------------
+# change the distribution of fast rcnn training samples
+# original p:n = 1:4
+# original p:n = 1:1
