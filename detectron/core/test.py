@@ -284,7 +284,7 @@ def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None):
 
     # modify for sigmoid out put 
     scores_bg = 1 - scores
-    scores = np.array([scores, scores_bg], dtype=np.float32)
+    scores = np.array([scores_bg, scores], dtype=np.float32)
     scores = np.transpose(scores)
 
     # In case there is 1 proposal
