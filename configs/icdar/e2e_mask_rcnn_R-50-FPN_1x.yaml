@@ -56,6 +56,7 @@ TRAIN:
   IMS_PER_BATCH: 2
   FG_FRACTION: 0.5
   USE_FLIPPED: True
+  AFP: True
 TEST:
   DATASETS: ('icdar_2015_val',)
   SCALE: 800

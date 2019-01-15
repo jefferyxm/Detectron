@@ -2,7 +2,7 @@
 export CUDA_VISIBLE_DEVICES=0
 python2 tools/train_net.py \
     --cfg configs/icdar/e2e_mask_rcnn_R-50-FPN_1x.yaml \
-    OUTPUT_DIR data/up_ada_exp04_2
+    OUTPUT_DIR data/up_ada_exp04_3
 
 
 # ---------------ada_exp01------------------- 
@@ -41,3 +41,6 @@ python2 tools/train_net.py \
 # change the distribution of fast rcnn training samples
 # original p:n = 1:4
 # original p:n = 1:1
+
+# -------------up_ada_exp04_3-----------------
+# using adaptive feature pooling

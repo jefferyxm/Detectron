@@ -264,7 +264,12 @@ class DetectionModelHelper(cnn.CNNModelHelper):
             for lvl in range(k_min, k_max + 1):
                 bl_in = blobs_in[k_max - lvl]  # blobs_in is in reversed order
                 sc = spatial_scale[k_max - lvl]  # in reversed order
-                bl_rois = blob_rois + '_fpn' + str(lvl)
+
+                # adaptive feature pooling, need get all feature from all fpn level
+                if cfg.TRAIN.AFP:
+                    bl_rois = blob_rois
+                else:
+                    bl_rois = blob_rois + '_fpn' + str(lvl)
                 bl_out = blob_out + '_fpn' + str(lvl)
                 bl_out_list.append(bl_out)
                 bl_argmax = ['_argmax_' + bl_out] if has_argmax else []
@@ -275,17 +280,24 @@ class DetectionModelHelper(cnn.CNNModelHelper):
                     spatial_scale=sc,
                     sampling_ratio=sampling_ratio
                 )
-            # The pooled features from all levels are concatenated along the
-            # batch dimension into a single 4D tensor.
-            xform_shuffled, _ = self.net.Concat(
-                bl_out_list, [blob_out + '_shuffled', '_concat_' + blob_out],
-                axis=0
-            )
-            # Unshuffle to match rois from dataloader
-            restore_bl = blob_rois + '_idx_restore_int32'
-            xform_out = self.net.BatchPermutation(
-                [xform_shuffled, restore_bl], blob_out
-            )
+            
+            if cfg.TRAIN.AFP:
+                xform_out, _ = self.net.Concat(
+                    bl_out_list, [blob_out, '_concat_' + blob_out],
+                    axis=1
+                )
+            else:
+                # The pooled features from all levels are concatenated along the
+                # batch dimension into a single 4D tensor.
+                xform_shuffled, _ = self.net.Concat(
+                    bl_out_list, [blob_out + '_shuffled', '_concat_' + blob_out],
+                    axis=0
+                )
+                # Unshuffle to match rois from dataloader
+                restore_bl = blob_rois + '_idx_restore_int32'
+                xform_out = self.net.BatchPermutation(
+                    [xform_shuffled, restore_bl], blob_out
+                )
         else:
             # Single feature level
             bl_argmax = ['_argmax_' + blob_out] if has_argmax else []

@@ -195,6 +195,8 @@ __C.TRAIN.COPY_WEIGHTS = False
 # Add StopGrad at a specified stage so the bottom layers are frozen
 __C.TRAIN.FREEZE_AT = 2
 
+# Enable adaptive feature pooling or not  
+__C.TRAIN.AFP = False
 
 # ---------------------------------------------------------------------------- #
 # Data loader options (see detectron/roi_data/loader.py for more info)

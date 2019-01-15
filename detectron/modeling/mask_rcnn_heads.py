@@ -110,9 +110,14 @@ def add_mask_rcnn_losses(model, blob_mask):
 
 def mask_rcnn_fcn_head_v1up4convs(model, blob_in, dim_in, spatial_scale):
     """v1up design: 4 * (conv 3x3), convT 2x2."""
-    return mask_rcnn_fcn_head_v1upXconvs(
-        model, blob_in, dim_in, spatial_scale, 4
-    )
+    if cfg.TRAIN.AFP:
+        return mask_rcnn_fcn_head_v1upXconvs(
+            model, blob_in, 3*dim_in, spatial_scale, 4
+        )
+    else:
+        return mask_rcnn_fcn_head_v1upXconvs(
+            model, blob_in, dim_in, spatial_scale, 4
+        )
 
 
 def mask_rcnn_fcn_head_v1up4convs_gn(model, blob_in, dim_in, spatial_scale):
