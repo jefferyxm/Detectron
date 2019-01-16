@@ -125,8 +125,12 @@ def im_detect_all(model, im, box_proposals, timers=None, entry=None):
 
         print('-----positv_cnt----')
         print(positv_cnt)
-
-    DBG = 0
+    
+    global cnt
+    DBG=0
+    cnt  = cnt +  1
+    if cnt>=104:
+        DBG = 1
     if DBG:
         # adarpn_cls_logits_fpn2
         # adarpn_cls_probs_fpn2
@@ -350,8 +354,8 @@ def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None):
 
     # -----------------------------------
 
-
     if cfg.TEST.BBOX_REG:
+    # if 0:
         # Apply bounding-box regression deltas
         box_deltas = workspace.FetchBlob(core.ScopedName('bbox_pred')).squeeze()
         # In case there is 1 proposal
