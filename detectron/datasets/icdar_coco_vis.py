@@ -6,7 +6,7 @@ import pylab
 import matplotlib.pyplot as plt
 pylab.rcParams['figure.figsize'] = (8.0, 10.0)
 
-state = 'test'
+state = 'train'
 
 data_dir = './data/icdar/icdar15/'
 anno_file = data_dir + 'annotations/anno_' + state + '_icdar15.json'
@@ -26,27 +26,27 @@ imgIds = coco.getImgIds(catIds=catIds )
 
 print imgIds
 
+cnt = 0
 for i in imgIds:
+    
+    cnt = cnt + 1
+    if cnt >1000:
+        img = coco.loadImgs(i)[0]
+        print img
+        I = io.imread(data_dir + state + '/' + img['file_name'])
+        plt.figure(); plt.axis('off')
+        # plt.imshow(I)
+        # plt.show()
 
-    img = coco.loadImgs(i)[0]
-    print img
-    I = io.imread(data_dir + state + '/' + img['file_name'])
-    plt.figure(); plt.axis('off')
-    # plt.imshow(I)
-    # plt.show()
+        plt.imshow(I); plt.axis('off')
+        annIds = coco.getAnnIds(imgIds=img['id'], catIds=catIds, iscrowd=None)
+        anns = coco.loadAnns(annIds)
 
-    plt.imshow(I); plt.axis('off')
-    annIds = coco.getAnnIds(imgIds=img['id'], catIds=catIds, iscrowd=None)
-    anns = coco.loadAnns(annIds)
-    try:
         coco.showAnns(anns)
         for ann in anns:
             bbox = ann['bbox']
             plt.gca().add_patch(plt.Rectangle((bbox[0], bbox[1]), bbox[2], bbox[3], edgecolor='r', fill=False, linewidth=2))
-        # plt.show()
-        plt.savefig('/home/xiem/tmp/gt/val/gt_'+img['file_name'])
+        plt.show()
+        # plt.savefig('/home/xiem/tmp/gt/val/gt_'+img['file_name'])
         # plt.savefig('/home/xiem/tmp/gt2/train/gt_'+img['file_name'])
         # plt.show()
-
-    except:
-        pass
