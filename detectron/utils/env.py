@@ -24,7 +24,7 @@ import os
 import sys
 
 # Default value of the CMake install prefix
-_CMAKE_INSTALL_PREFIX = '/usr/local'
+_CMAKE_INSTALL_PREFIX = '/home/xiem/pytorch/torch/lib/tmp_install'
 
 
 def get_runtime_dir():
@@ -41,7 +41,7 @@ def set_up_matplotlib():
     """Set matplotlib up."""
     import matplotlib
     # Use a non-interactive backend
-    matplotlib.use('Agg')
+    # matplotlib.use('Agg')
 
 
 def exit_on_error():
@@ -63,6 +63,7 @@ def get_detectron_ops_lib():
     # Search for detectron ops lib
     for prefix in prefixes:
         ops_path = os.path.join(prefix, 'lib/libcaffe2_detectron_ops_gpu.so')
+        print(ops_path)
         if os.path.exists(ops_path):
             # TODO(ilijar): Switch to using a logger
             print('Found Detectron ops lib: {}'.format(ops_path))

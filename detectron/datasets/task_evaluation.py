@@ -285,6 +285,13 @@ COCO_AP75 = 2
 COCO_APS = 3
 COCO_APM = 4
 COCO_APL = 5
+
+COCO_AR1 = 6
+COCO_AR10 = 7
+COCO_AR100 = 8
+COCO_ARS = 9
+COCO_ARM = 10
+COCO_ARL = 11
 # Slight difference for keypoints
 COCO_KPS_APM = 3
 COCO_KPS_APL = 4
@@ -298,12 +305,19 @@ def _coco_eval_to_box_results(coco_eval):
     res = _empty_box_results()
     if coco_eval is not None:
         s = coco_eval.stats
-        res['box']['AP'] = s[COCO_AP]
-        res['box']['AP50'] = s[COCO_AP50]
-        res['box']['AP75'] = s[COCO_AP75]
-        res['box']['APs'] = s[COCO_APS]
-        res['box']['APm'] = s[COCO_APM]
-        res['box']['APl'] = s[COCO_APL]
+        res['box']['boxAP'] = s[COCO_AP]
+        res['box']['boxAP50'] = s[COCO_AP50]
+        res['box']['boxAP75'] = s[COCO_AP75]
+        res['box']['boxAPs'] = s[COCO_APS]
+        res['box']['boxAPm'] = s[COCO_APM]
+        res['box']['boxAPl'] = s[COCO_APL]
+
+        res['box']['boxAR1'] = s[COCO_AR1]
+        res['box']['boxAR10'] = s[COCO_AR10]
+        res['box']['boxAR100'] = s[COCO_AR100]
+        res['box']['boxARs'] = s[COCO_ARS]
+        res['box']['boxARm'] = s[COCO_ARM]
+        res['box']['boxARl'] = s[COCO_ARL]
     return res
 
 
@@ -311,12 +325,20 @@ def _coco_eval_to_mask_results(coco_eval):
     res = _empty_mask_results()
     if coco_eval is not None:
         s = coco_eval.stats
-        res['mask']['AP'] = s[COCO_AP]
-        res['mask']['AP50'] = s[COCO_AP50]
-        res['mask']['AP75'] = s[COCO_AP75]
-        res['mask']['APs'] = s[COCO_APS]
-        res['mask']['APm'] = s[COCO_APM]
-        res['mask']['APl'] = s[COCO_APL]
+        res['mask']['maskAP'] = s[COCO_AP]
+        res['mask']['maskAP50'] = s[COCO_AP50]
+        res['mask']['maskAP75'] = s[COCO_AP75]
+        res['mask']['maskAPs'] = s[COCO_APS]
+        res['mask']['maskAPm'] = s[COCO_APM]
+        res['mask']['maskAPl'] = s[COCO_APL]
+
+        res['mask']['maskAR1'] = s[COCO_AR1]
+        res['mask']['maskAR10'] = s[COCO_AR10]
+        res['mask']['maskAR100'] = s[COCO_AR100]
+        res['mask']['maskARs'] = s[COCO_ARS]
+        res['mask']['maskARm'] = s[COCO_ARM]
+        res['mask']['maskARl'] = s[COCO_ARL]
+
     return res
 
 
@@ -347,12 +369,18 @@ def _empty_box_results():
         'box':
         OrderedDict(
             [
-                ('AP', -1),
-                ('AP50', -1),
-                ('AP75', -1),
-                ('APs', -1),
-                ('APm', -1),
-                ('APl', -1),
+                ('boxAP', -1),
+                ('boxAP50', -1),
+                ('boxAP75', -1),
+                ('boxAPs', -1),
+                ('boxAPm', -1),
+                ('boxAPl', -1),
+                ('boxAR1', -1),
+                ('boxAR10', -1),
+                ('boxAR100', -1),
+                ('boxARs', -1),
+                ('boxARm', -1),
+                ('boxARl', -1),
             ]
         )
     })
@@ -363,12 +391,18 @@ def _empty_mask_results():
         'mask':
         OrderedDict(
             [
-                ('AP', -1),
-                ('AP50', -1),
-                ('AP75', -1),
-                ('APs', -1),
-                ('APm', -1),
-                ('APl', -1),
+                ('maskAP', -1),
+                ('maskAP50', -1),
+                ('maskAP75', -1),
+                ('maskAPs', -1),
+                ('maskAPm', -1),
+                ('maskAPl', -1),
+                ('maskAR1', -1),
+                ('maskAR10', -1),
+                ('maskAR100', -1),
+                ('maskARs', -1),
+                ('maskARm', -1),
+                ('maskARl', -1),
             ]
         )
     })
