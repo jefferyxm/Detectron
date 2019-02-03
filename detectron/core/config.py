@@ -683,6 +683,8 @@ __C.RPN.STRIDE = 16
 # RPN anchor aspect ratios
 __C.RPN.ASPECT_RATIOS = (0.5, 1, 2)
 
+__C.RPN.FINEANCHOR = False
+
 
 # ---------------------------------------------------------------------------- #
 # FPN options

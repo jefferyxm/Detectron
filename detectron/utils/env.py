@@ -24,7 +24,7 @@ import os
 import sys
 
 # Default value of the CMake install prefix
-_CMAKE_INSTALL_PREFIX = '/usr/local'
+_CMAKE_INSTALL_PREFIX = '/home/xiem/pytorch/torch/lib/tmp_install'
 
 
 def get_runtime_dir():

@@ -308,7 +308,8 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
             field_stride = 2.**lvl
 
             # decrease filed_stride to get large scale anchor points
-            field_stride = field_stride/2
+            if cfg.RPN.FINEANCHOR:
+                field_stride = field_stride/2
             
             # 1, got all anchor center points
             fpn_max_size = cfg.FPN.COARSEST_STRIDE * np.ceil(
@@ -339,7 +340,7 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
         blobs['im_info'].append(im_info)
 
         # batch multiple factor for each fpn level
-        example_level_fraction=[0.6, 0.3, 0.1]
+        example_level_fraction=[0.7, 0.25, 0.05]
         fpn_score_weight_factor=[1.0, 1.4, 2.0]
         fpn_wh_weight_factor=[4.0, 2.0, 1.0]
 
@@ -451,10 +452,10 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                     this_level_label[ valid_apidx[enable_idx[0]] ] = 1
 
                     this_level_wh[ valid_apidx[enable_idx[0]], 0 ] = \
-                            CANDWS[ WHidx[enable_idx[0], enable_idx[1]], enable_idx[0], enable_idx[1] ]/norm
+                             CANDWS[ WHidx[enable_idx[0], enable_idx[1]], enable_idx[0], enable_idx[1] ]/norm 
                     this_level_wh[ valid_apidx[enable_idx[0]], 1 ] = \
-                            CANDHS[ WHidx[enable_idx[0], enable_idx[1]], enable_idx[0], enable_idx[1] ]/norm
-                    
+                             CANDHS[ WHidx[enable_idx[0], enable_idx[1]], enable_idx[0], enable_idx[1] ]/norm 
+
                     # compute box delta
                     gt_widths = (valid_gts[enable_idx[1], 2] - valid_gts[enable_idx[1], 0] + 1) 
                     gt_heghts = (valid_gts[enable_idx[1], 3] - valid_gts[enable_idx[1], 1] + 1) 
@@ -469,6 +470,9 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                             np.log( gt_widths/(this_level_wh[valid_apidx[enable_idx[0]], 0] * norm) )
                     this_level_box_delta[valid_apidx[enable_idx[0]], 3] = \
                             np.log( gt_heghts/(this_level_wh[valid_apidx[enable_idx[0]], 1] * norm) )
+                    
+                    cplogidx = np.where(this_level_wh > 0 ) 
+                    this_level_wh[ cplogidx ] = np.log(this_level_wh[ cplogidx ])
 
                     DBG=0
                     if DBG:
@@ -486,8 +490,8 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                         print(len(tg_index))
 
                         for tg in tg_index:
-                            w = this_level_wh[tg][0]*anchor_size[0]
-                            h = this_level_wh[tg][1]*anchor_size[0]
+                            w = np.exp(this_level_wh[tg][0])*anchor_size[0]
+                            h = np.exp(this_level_wh[tg][1])*anchor_size[0]
                             p1 = [(this_level_ap[tg][0] - 0.5*w), 
                                     (this_level_ap[tg][1])- 0.5*h]
                             plt.gca().add_patch(plt.Rectangle((p1[0], p1[1]), w, h ,fill=False, edgecolor='r', linewidth=1))
@@ -558,7 +562,8 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
 
                 # reshape as blob shape
                 field_stride = 2.**lvl
-                field_stride = field_stride/2
+                if cfg.RPN.FINEANCHOR:
+                    field_stride = field_stride/2
 
                 fpn_max_size = cfg.FPN.COARSEST_STRIDE * np.ceil(
                     cfg.TRAIN.MAX_SIZE / float(cfg.FPN.COARSEST_STRIDE))

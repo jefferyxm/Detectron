@@ -2,7 +2,7 @@
 export CUDA_VISIBLE_DEVICES=0
 python2 tools/train_net.py \
     --cfg configs/icdar/e2e_mask_rcnn_R-50-FPN_1x.yaml \
-    OUTPUT_DIR data/up_ada_exp04_4
+    OUTPUT_DIR data/pure_ada_anchor
 
 
 # ---------------ada_exp01------------------- 
@@ -47,3 +47,9 @@ python2 tools/train_net.py \
 
 # -------------up_ada_exp04_4-----------------
 # vertical rotate imgage
+
+# -------------pure_ada_anchor----------------
+# do not use up sampling
+# do not use afp
+# do not use focal loss
+

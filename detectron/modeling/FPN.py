@@ -331,26 +331,30 @@ def add_fpn_rpn_outputs(model, blobs_in, dim_in, spatial_scales):
     #up sampling blobs_in to get large feature map
     # using conv_T
 
-    blobs_in_up = []
-    for lvl in range(k_min, k_max+1):
+    # use_up sampling rpn or not
+    use_fine_anchor = cfg.RPN.FINEANCHOR
 
-        slvl = str(lvl)
-        bl_in = blobs_in[::-1][lvl-k_min]
+    if use_fine_anchor:
+        blobs_in_up = []
+        for lvl in range(k_min, k_max+1):
 
-        bl_in_up = model.ConvTranspose(
-            bl_in,
-            'bl_in_up_' + slvl,
-            dim_in,
-            dim_out,
-            kernel=2,
-            pad=0,
-            stride=2,
-            weight_init=gauss_fill(0.01),
-            bias_init=const_fill(0.0)
-        )
-        bl_in_up = model.Relu(bl_in_up, bl_in_up)
+            slvl = str(lvl)
+            bl_in = blobs_in[::-1][lvl-k_min]
 
-        blobs_in_up += [bl_in_up]
+            bl_in_up = model.ConvTranspose(
+                bl_in,
+                'bl_in_up_' + slvl,
+                dim_in,
+                dim_out,
+                kernel=2,
+                pad=0,
+                stride=2,
+                weight_init=gauss_fill(0.01),
+                bias_init=const_fill(0.0)
+            )
+            bl_in_up = model.Relu(bl_in_up, bl_in_up)
+
+            blobs_in_up += [bl_in_up]
 
     # assert len(blobs_in) == k_max - k_min + 1
 
@@ -359,9 +363,13 @@ def add_fpn_rpn_outputs(model, blobs_in, dim_in, spatial_scales):
         # bl_in = blobs_in[k_max - lvl]  # blobs_in is in reversed order
         # sc = spatial_scales[k_max - lvl]  # in reversed order
 
-        # bl_in = blobs_in[::-1][lvl-k_min]
-        bl_in = blobs_in_up[lvl-k_min]
-        sc = spatial_scales[::-1][lvl-k_min]
+        if use_fine_anchor:
+            bl_in = blobs_in_up[lvl-k_min]
+            sc = spatial_scales[::-1][lvl-k_min]
+        else:
+            bl_in = blobs_in[::-1][lvl-k_min]
+            sc = spatial_scales[::-1][lvl-k_min]
+
 
         slvl = str(lvl)
 

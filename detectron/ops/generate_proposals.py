@@ -35,8 +35,11 @@ class GenerateProposalsOp(object):
     def __init__(self, anchors, spatial_scale, train, ap_size):
         self._anchors = anchors
         self._num_anchors = self._anchors.shape[0]
-        # self._feat_stride = 1. / spatial_scale
-        self._feat_stride = (1. / spatial_scale) / 2
+
+        if cfg.RPN.FINEANCHOR:
+            self._feat_stride = (1. / spatial_scale) / 2
+        else:
+            self._feat_stride = 1. / spatial_scale
         self._train = train
         self.ap_size = ap_size
 
@@ -142,11 +145,11 @@ class GenerateProposalsOp(object):
 
 
         # whs may be less than zero, filter them out
-        valid_index = np.where( (bbox_whs[:,0])>0 & (bbox_whs[:,1]>0) )[0]
-        bbox_deltas = bbox_deltas[valid_index, :]
-        bbox_whs = bbox_whs[valid_index, :] * norm
-        anchor_points = anchor_points[valid_index, :]
-        scores = scores[valid_index]
+        # valid_index = np.where( (bbox_whs[:,0])>0 & (bbox_whs[:,1]>0) )[0]
+        # bbox_deltas = bbox_deltas[valid_index, :]
+        # bbox_whs = bbox_whs[valid_index, :] * norm
+        # anchor_points = anchor_points[valid_index, :]
+        # scores = scores[valid_index]
 
         # 4. sort all (proposal, score) pairs by score from highest to lowest
         # 5. take top pre_nms_topN (e.g. 6000)
@@ -166,6 +169,10 @@ class GenerateProposalsOp(object):
         bbox_whs = bbox_whs[order, :]
         anchor_points = anchor_points[order, :]
         scores = scores[order]
+
+        # Prevent sending too large values into np.exp()
+        bbox_whs = np.minimum(bbox_whs, cfg.BBOX_XFORM_CLIP)
+        bbox_whs = np.exp(bbox_whs) * norm
 
         # Transform anchors into proposals via bbox transformations
         proposals = box_utils.bbox_transform_anchor_point(
