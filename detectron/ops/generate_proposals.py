@@ -163,6 +163,11 @@ class GenerateProposalsOp(object):
             )[:pre_nms_topN]
             order = np.argsort(-scores[inds].squeeze())
             order = inds[order]
+        
+        # modified 4
+        # get score higher than 0.5
+        scores = scores[order]
+        order = np.where( (scores.squeeze()) >= 0.5 )[0]
 
         # keep the top k candidates
         bbox_deltas = bbox_deltas[order, :]
