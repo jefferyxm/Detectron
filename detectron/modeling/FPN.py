@@ -570,7 +570,7 @@ def add_fpn_rpn_losses(model):
             ],
             'loss_adarpn_bbox_wh_fpn' + slvl,
             beta=1. / 9.,
-            scale=(model.GetLossScale())*0.1,
+            scale=model.GetLossScale(),
         )
 
         # Normalization by (1) RPN_BATCH_SIZE_PER_IM and (2) IMS_PER_BATCH is

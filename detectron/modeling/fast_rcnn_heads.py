@@ -145,6 +145,35 @@ def add_roi_2mlp_head(model, blob_in, dim_in, spatial_scale):
     model.Relu('fc7', 'fc7')
     return 'fc7', int(hidden_dim/2)
 
+def add_roi_gp_head(model, blob_in, dim_in, spatial_scale):
+    """Add global pool with one hidden layers."""
+    hidden_dim = cfg.FPN.DIM
+    roi_size = cfg.FAST_RCNN.ROI_XFORM_RESOLUTION
+    roi_feat = model.RoIFeatureTransform(
+        blob_in,
+        'roi_feat',
+        blob_rois='rois',
+        method=cfg.FAST_RCNN.ROI_XFORM_METHOD,
+        resolution=roi_size,
+        sampling_ratio=cfg.FAST_RCNN.ROI_XFORM_SAMPLING_RATIO,
+        spatial_scale=spatial_scale
+    )
+
+    avg_pool = model.AveragePool(
+        roi_feat, 
+        'avg_pool',
+        stride=1,
+        kernel=roi_size,
+        pad=0,
+        # order='NCHW',
+        engine='CUDNN', 
+    )
+    
+    model.Relu('avg_pool', 'avg_pool1')
+    model.FC('avg_pool1', 'fc7', hidden_dim, int(hidden_dim/2))
+    model.Relu('fc7', 'fc7')
+    return 'fc7', int(hidden_dim/2)
+
 
 def add_roi_Xconv1fc_head(model, blob_in, dim_in, spatial_scale):
     """Add a X conv + 1fc head, as a reference if not using GroupNorm"""

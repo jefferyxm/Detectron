@@ -1,8 +1,8 @@
 #! /bin/bash
-export CUDA_VISIBLE_DEVICES=0
+export CUDA_VISIBLE_DEVICES=1
 python2 tools/train_net.py \
     --cfg configs/icdar/e2e_mask_rcnn_R-50-FPN_1x.yaml \
-    OUTPUT_DIR data/pure_ada_anchor_2
+    OUTPUT_DIR data/pure_ada_anchor_2_3
 
 
 # ---------------ada_exp01------------------- 
@@ -57,3 +57,9 @@ python2 tools/train_net.py \
 # do not rpn box regeression
 # rpn_wh loss scaled 0.1 
 # keep proposal with score >= 0.5 ranther keep top k
+
+    # pure_ada_anchor_2_1
+    # use golbal pool instead of fc6
+
+    # pure_ada_anchor_2_2
+    # add_roi_Xconv1fc_gn_head
