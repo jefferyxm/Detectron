@@ -141,9 +141,9 @@ def add_roi_2mlp_head(model, blob_in, dim_in, spatial_scale):
     else:
         model.FC(roi_feat, 'fc6', dim_in * roi_size * roi_size, hidden_dim)
     model.Relu('fc6', 'fc6')
-    model.FC('fc6', 'fc7', hidden_dim, int(hidden_dim/2))
+    model.FC('fc6', 'fc7', hidden_dim, int(hidden_dim))
     model.Relu('fc7', 'fc7')
-    return 'fc7', int(hidden_dim/2)
+    return 'fc7', int(hidden_dim)
 
 def add_roi_gp_head(model, blob_in, dim_in, spatial_scale):
     """Add global pool with one hidden layers."""
@@ -170,9 +170,9 @@ def add_roi_gp_head(model, blob_in, dim_in, spatial_scale):
     )
     
     model.Relu('avg_pool', 'avg_pool1')
-    model.FC('avg_pool1', 'fc7', hidden_dim, int(hidden_dim/2))
+    model.FC('avg_pool1', 'fc7', hidden_dim, int(hidden_dim))
     model.Relu('fc7', 'fc7')
-    return 'fc7', int(hidden_dim/2)
+    return 'fc7', int(hidden_dim)
 
 
 def add_roi_Xconv1fc_head(model, blob_in, dim_in, spatial_scale):

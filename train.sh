@@ -1,8 +1,8 @@
 #! /bin/bash
-export CUDA_VISIBLE_DEVICES=1
+export CUDA_VISIBLE_DEVICES=0
 python2 tools/train_net.py \
     --cfg configs/icdar/e2e_mask_rcnn_R-50-FPN_1x.yaml \
-    OUTPUT_DIR data/pure_ada_anchor_2_3
+    OUTPUT_DIR data/pure_ada_anchor_3
 
 
 # ---------------ada_exp01------------------- 
@@ -63,3 +63,6 @@ python2 tools/train_net.py \
 
     # pure_ada_anchor_2_2
     # add_roi_Xconv1fc_gn_head
+
+# ------------pure_ada_anchor_3---------------
+# trian with icdar 2017

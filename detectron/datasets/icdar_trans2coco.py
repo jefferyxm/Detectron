@@ -4,9 +4,12 @@ import cv2
 import numpy as np
 import math
 
+year = '2017'
+state = 'test'
+
 inno_dict_all = {
     'info':{'url': 'icdar', 'version': '1.0', 
-            'year': '2015', 'contributor':'icdar', 'data_created':'2015'},
+            'year': year, 'contributor':'icdar', 'data_created': year},
     
     'images':[],
 
@@ -19,14 +22,23 @@ inno_dict_all = {
     'categories': [{"supercategory": "Text", "id": 1, "name": "text_block"}, {"supercategory": "Text", "id": 2, "name": "confused"}]
 }
 
-dataset_dir = './data/icdar/icdar15/'
+# icdar2015 dataset dir
+if year == '2015':
+    dataset_dir = './data/icdar/icdar15/'
+elif year == '2017':
+    dataset_dir = './data/icdar/icdar17/'
 
 index = 0
-state = 'train'
-if state =='train':
-    instance_id = 100000
-elif state == 'test':
-    instance_id = 500000
+if year == '2015':
+    if state =='train':
+        instance_id = 100000
+    elif state == 'test':
+        instance_id = 500000
+elif year == '2017':
+    if state =='train':
+        instance_id = 200000
+    elif state == 'test':
+        instance_id = 600000
 
 for _, _, files in os.walk(dataset_dir + state + '/'):
     for file_name in files:
@@ -166,7 +178,7 @@ for _, _, files in os.walk(dataset_dir + state + '/'):
 print index
 print instance_id
 
-with open(dataset_dir + 'anno_'+state+'_icdar15.json', 'w') as jsonfile:
+with open(dataset_dir + 'anno_'+state+'_icdar17.json', 'w') as jsonfile:
     js.dump(inno_dict_all,jsonfile)
     print 'finish!'    
 
