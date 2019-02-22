@@ -8,8 +8,8 @@ pylab.rcParams['figure.figsize'] = (8.0, 10.0)
 
 state = 'train'
 
-data_dir = './data/icdar/icdar15/'
-anno_file = data_dir + 'annotations/anno_' + state + '_icdar15.json'
+data_dir = './data/icdar/icdar17/'
+anno_file = data_dir + 'annotations/anno_' + state + '_icdar17.json'
 
 coco = COCO(anno_file)
 

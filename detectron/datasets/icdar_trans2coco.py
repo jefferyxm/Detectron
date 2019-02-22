@@ -92,50 +92,7 @@ for _, _, files in os.walk(dataset_dir + state + '/'):
                 points = map(int, str_points)
 
                 # caculate polygon
-                polygon = []
-                # 1
-                step = 0
-                if (points[2]-points[0]) != 0:
-                    deltay = float(points[3]-points[1])/(points[2]-points[0])
-                    for i in range(points[0],points[2]):
-                        polygon.append(i)
-                        polygon.append(round(points[1] + deltay*step, 2))
-                        step = step + 1
-                else:
-                    skip = 1 
-                #2
-                step= 0
-                if (points[5]-points[3])!=0:
-                    deltax = float(points[4]-points[2])/(points[5]-points[3])
-                    for i in range(points[3],points[5]):
-                        polygon.append(round(points[2] + deltax*step, 2))
-                        polygon.append(i)
-                        step = step + 1
-                else:
-                    skip = 1
-                
-                # 3 
-                step = 0
-                if (points[4]-points[6]) !=0:
-                    deltay = float(points[7]-points[5])/(points[4]-points[6])
-                    for i in range(points[6],points[4]):
-                        polygon.append(points[4] - i + points[6])
-                        polygon.append(round(points[5] + deltay*step, 2))
-                        step = step + 1
-                else:
-                    skip = 1
-                
-                #4
-                step= 0
-                if (points[7]-points[1]) != 0:
-                    deltax = float(points[0]-points[6])/(points[7]-points[1])
-                    for i in range(points[1],points[7]):
-                        polygon.append(round(points[6] + deltax*step, 2))
-                        polygon.append(points[7] - i + points[1])
-                        step = step + 1
-                else:
-                    skip = 1
-
+                polygon = points[:]
                 anno_dict['segmentation'].append(polygon)
                 # print anno_dict['segmentation']
                 
