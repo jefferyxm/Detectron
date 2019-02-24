@@ -335,7 +335,7 @@ def vis_one_image(
                 img[:, :, c] = color_mask[c]
             e = masks[:, :, i]
 
-            contour, hier = cv2.findContours(
+            _, contour, hier = cv2.findContours(
                 e.copy(), cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
 
             for c in contour:
@@ -466,7 +466,7 @@ def post_process_detection(
             # show mask
             if segms is not None and len(segms) > i:
                 e = masks[:, :, i]
-                contour, hier = cv2.findContours(
+                _, contour, hier = cv2.findContours(
                     e.copy(), cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
 
                 for c in contour:
