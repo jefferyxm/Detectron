@@ -4,8 +4,8 @@ import cv2
 import numpy as np
 import math
 
-year = '2017'
-state = 'test'
+year = '2015'
+state = 'train'
 
 inno_dict_all = {
     'info':{'url': 'icdar', 'version': '1.0', 
