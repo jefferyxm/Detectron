@@ -190,6 +190,10 @@ def build_generic_detection_model(
             head_loss_gradients['rpn'] = rpn_heads.add_generic_rpn_outputs(
                 model, blob_conv, dim_conv, spatial_scale_conv
             )
+        
+        if 1:
+            import detectron.modeling.FPN as FPN
+            blob_conv = FPN.add_deform_feature(model, blob_conv, dim_conv)
 
         if cfg.FPN.FPN_ON:
             # After adding the RPN head, restrict FPN blobs and scales to

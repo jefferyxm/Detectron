@@ -501,7 +501,79 @@ def add_fpn_rpn_outputs(model, blobs_in, dim_in, spatial_scales):
                 ap_size=cfg.FPN.RPN_ANCHOR_START_SIZE * 2.**(lvl - k_min)
             )
 
+def add_deform_feature(model, conv_blobs_in, dim_in):
+    
+    dim_out = dim_in
+    k_max = cfg.FPN.RPN_MAX_LEVEL  # coarsest level of pyramid
+    k_min = cfg.FPN.RPN_MIN_LEVEL  # finest level of pyramid
 
+    # use_up sampling rpn or not
+    use_fine_anchor = cfg.RPN.FINEANCHOR
+
+    if use_fine_anchor:
+        blobs_in_up = []
+        for lvl in range(k_min, k_max+1):
+
+            slvl = str(lvl)
+            bl_in = conv_blobs_in[::-1][lvl-k_min]
+
+            bl_in_up = model.ConvTranspose(
+                bl_in,
+                'bl_in_up_' + slvl,
+                dim_in,
+                dim_out,
+                kernel=2,
+                pad=0,
+                stride=2,
+                weight_init=gauss_fill(0.01),
+                bias_init=const_fill(0.0)
+            )
+            bl_in_up = model.Relu(bl_in_up, bl_in_up)
+
+            blobs_in_up += [bl_in_up]
+
+    blob_out = conv_blobs_in[:]
+    for lvl in range(k_min, k_max + 1):
+
+        if use_fine_anchor:
+            conv_bl_in = blobs_in_up[lvl-k_min]
+        else:
+            conv_bl_in = conv_blobs_in[::-1][lvl-k_min]
+        slvl = str(lvl)
+        rpnwh_bl_in = 'adarpn_bbox_wh_pred_fpn' + slvl
+        
+        deform_offset = model.Conv(
+                rpnwh_bl_in,
+                'deform_offset' + slvl,
+                2,
+                2*3*3,
+                kernel=1,
+                pad=0,
+                stride=1,
+                weight_init=gauss_fill(0.01),
+                bias_init=const_fill(0.0)
+            )
+        batchsize = cfg.TRAIN.IMS_PER_BATCH
+        deform_w = model.net.GaussianFill([], ['deform_conv_' + slvl + '_w'], mean=0.0, std=0.01, shape=[dim_in, dim_in, 3, 3], run_once=0)
+        deform_b = model.net.ConstantFill([], ['deform_conv_' + slvl + '_b'], shape=[dim_in], value=0.0, run_once=0)
+        
+        from caffe2.python import core
+        op = core.CreateOperator(
+            "DeformConv",
+            [conv_bl_in, deform_offset, deform_w, deform_b],
+            'deform_output' + slvl,
+            stride=1,
+            kernel=3,
+            pad=1,
+            order='NCHW',
+            engine='CUDNN',
+        )
+        model.net.Proto().op.extend([op])
+        
+        blob_out[-1 - (lvl-k_min)] = 'deform_output' + slvl
+    return blob_out
+
+    
 def add_fpn_rpn_losses(model):
     """Add RPN on FPN specific losses."""
     loss_gradients = {}

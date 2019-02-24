@@ -45,7 +45,7 @@ MRCNN:
   THRESH_BINARIZE: 0.5
 TRAIN:
   # WEIGHTS: https://s3-us-west-2.amazonaws.com/detectron/ImageNetPretrained/MSRA/R-50.pkl
-  WEIGHTS: data/model_final.pkl
+  WEIGHTS: data/R-50.pkl
   DATASETS: ('icdar_2015_train',)
   SCALES: (800,)
   MAX_SIZE: 1333
@@ -55,7 +55,7 @@ TRAIN:
   RPN_POST_NMS_TOP_N: 700
   RPN_MIN_SIZE: 10
   SNAPSHOT_ITERS: 10000
-  IMS_PER_BATCH: 3
+  IMS_PER_BATCH: 2
   FG_FRACTION: 0.5
   USE_FLIPPED: False
   AFP: False
