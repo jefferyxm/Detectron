@@ -554,10 +554,44 @@ def add_deform_feature(model, conv_blobs_in, dim_in):
                 bias_init=const_fill(0.0)
             )
         batchsize = cfg.TRAIN.IMS_PER_BATCH
-        deform_w = model.net.GaussianFill([], ['deform_conv_' + slvl + '_w'], mean=0.0, std=0.01, shape=[dim_in, dim_in, 3, 3], run_once=0)
-        deform_b = model.net.ConstantFill([], ['deform_conv_' + slvl + '_b'], shape=[dim_in], value=0.0, run_once=0)
-        
+        # deform_w = model.net.GaussianFill([], ['deform_conv_' + slvl + '_w'], mean=0.0, std=0.01, shape=[dim_in, 64, 3, 3], run_once=1)
+        # deform_b = model.net.ConstantFill([], ['deform_conv_' + slvl + '_b'], shape=[dim_in], value=0.0, run_once=1)
+
+        # deform_w = model.param_init_net.XavierFill([], 'deform_conv_' + slvl + '_w', shape=[dim_in, dim_in, 3, 3])
+        # deform_b = model.param_init_net.ConstantFill([], 'deform_conv_' + slvl + '_b', shape=[dim_in,])
+
         from caffe2.python import core
+        from caffe2.python.modeling import initializers
+        from caffe2.python.modeling.parameter_info import ParameterTags
+
+        # create params
+        WeightInitializer = initializers.update_initializer(
+                None, None, ("XavierFill", {})
+            )
+        deform_w = model.create_param(
+                param_name='deform_conv_' + slvl + '_w',
+                shape=[dim_in, 64, 3, 3],
+                initializer=WeightInitializer,
+                tags=ParameterTags.WEIGHT
+            )
+        BiasInitializer = initializers.update_initializer(
+                None, None, ("ConstantFill", {})
+            )
+        
+        deform_b = model.create_param(
+                param_name='deform_conv_' + slvl + '_b',
+                shape=[dim_in, ],
+                initializer=BiasInitializer,
+                tags=ParameterTags.BIAS
+            )
+        inputs = ([conv_bl_in, deform_offset, deform_w, deform_b])
+        inputs = core._RectifyInputOutput(inputs)
+        for item in inputs:
+
+            if not model.net.BlobIsDefined(item):
+                assert item.Net() != model.net
+                model.net.AddExternalInput(item)
+
         op = core.CreateOperator(
             "DeformConv",
             [conv_bl_in, deform_offset, deform_w, deform_b],
