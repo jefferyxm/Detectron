@@ -102,7 +102,7 @@ def add_fpn_onto_conv_body(
     # similarly for spatial_scales_fpn: [1/32, 1/16, 1/8, 1/4]
 
     conv_body_func(model)
-    blobs_fpn, dim_fpn, spatial_scales_fpn = add_fpn(
+    blobs_fpn, dim_fpn, spatial_scales_fpn = add_pan(
         model, fpn_level_info_func()
     )
 
@@ -112,6 +112,188 @@ def add_fpn_onto_conv_body(
     else:
         # use all levels
         return blobs_fpn, dim_fpn, spatial_scales_fpn
+
+def add_pan(model, fpn_level_info):
+    fpn_dim = cfg.FPN.DIM
+    min_level, max_level = get_min_max_levels()
+    num_backbone_stages = (
+        len(fpn_level_info.blobs) - (min_level - LOWEST_BACKBONE_LVL)
+    )
+    lateral_input_blobs = fpn_level_info.blobs[:num_backbone_stages]
+    blobs_fpn = [
+        'fpn_{}'.format(s)
+        for s in fpn_level_info.blobs[:num_backbone_stages]
+    ]
+    fpn_dim_lateral = fpn_level_info.dims
+    
+
+    # start pan at res stage5
+    fpa_out = add_fpa(model, lateral_input_blobs[0], fpn_dim_lateral[0], fpn_dim)
+    blobs_fpn[0] = fpa_out
+
+    for i in range(num_backbone_stages - 1):
+        add_gau(
+            model,
+            blobs_fpn[i],             # top-down blob
+            lateral_input_blobs[i + 1],  # lateral blob
+            blobs_fpn[i + 1],         # next output blob
+            fpn_dim,                     # output dimension
+            fpn_dim_lateral[i + 1]       # lateral input dimension
+        )
+    
+    spatial_scales = [fpn_level_info.spatial_scales[i] for i in range(num_backbone_stages)]
+
+    return blobs_fpn, fpn_dim, spatial_scales 
+
+
+def add_fpa(model, lateral_input, input_dim, output_dim):
+    
+    # branch1: global avg pool
+    fpa_b1_gap = model.AveragePool(
+        lateral_input, 
+        'fpa_b1_gap',
+        global_pooling=True,
+        # order='NCHW',
+        engine='CUDNN', 
+    )
+    xavier_fill = ('XavierFill', {})
+    fpa_b1_conv = model.Conv(
+        fpa_b1_gap,
+        'fpa_b1_conv',
+        dim_in=input_dim,
+        dim_out=output_dim,
+        kernel=1,
+        pad=0,
+        stride=1,
+        weight_init=xavier_fill,
+        bias_init=const_fill(0.0)
+    )
+    fpa_b1 = model.Relu(fpa_b1_conv, fpa_b1_conv)
+
+    # branch2 1x1 convolution
+    fpa_b2_conv = model.Conv(
+        lateral_input,
+        'fpa_b2_conv',
+        dim_in=input_dim,
+        dim_out=output_dim,
+        kernel=1,
+        pad=0,
+        stride=1,
+        weight_init=xavier_fill,
+        bias_init=const_fill(0.0)
+    )
+    fpa_b2 = model.Relu(fpa_b2_conv, fpa_b2_conv)
+
+    # branch 3 pyramid attention dilation rate 1 ,2, 5
+    fpa_b3_c1 = model.Conv(
+        lateral_input,
+        'fpa_b3_c1',
+        dim_in=input_dim,
+        dim_out=output_dim,
+        kernel=3,
+        dilation=1,
+        pad=1,
+        stride=1,
+        weight_init=('GaussianFill', {'std': 0.001}),
+        bias_init=('ConstantFill', {'value': 0.})
+    )
+    fpa_b3_c1 = model.Relu(fpa_b3_c1, fpa_b3_c1)
+
+    fpa_b3_c2 = model.Conv(
+        lateral_input,
+        'fpa_b3_c2',
+        dim_in=input_dim,
+        dim_out=output_dim,
+        kernel=3,
+        dilation=2,
+        pad=2,
+        stride=1,
+        weight_init=('GaussianFill', {'std': 0.001}),
+        bias_init=('ConstantFill', {'value': 0.})
+    )
+    fpa_b3_c2 = model.Relu(fpa_b3_c2, fpa_b3_c2)
+
+    fpa_b3_c3 = model.Conv(
+        lateral_input,
+        'fpa_b3_c3',
+        dim_in=input_dim,
+        dim_out=output_dim,
+        kernel=3,
+        dilation=5,
+        pad=5,
+        stride=1,
+        weight_init=('GaussianFill', {'std': 0.001}),
+        bias_init=('ConstantFill', {'value': 0.})
+    )
+    fpa_b3_c3 = model.Relu(fpa_b3_c3, fpa_b3_c3)
+
+
+    fpa_b3_concat, _ = model.net.Concat(
+        [fpa_b3_c1, fpa_b3_c2, fpa_b3_c3],
+        ['fpa_b3_concat', '_fpa_b3_concat_dims'],
+        axis=1
+    )
+    fpa_b3 = model.Conv(
+        fpa_b3_concat,
+        'fpa_b3',
+        dim_in=output_dim*3,
+        dim_out=output_dim,
+        kernel=1,
+        stride=1,
+        pad=0,
+        weight_init=xavier_fill,
+        bias_init=const_fill(0.0)
+    )
+
+    # multiply b2 & b3 and add b1
+    fpa_b2b3 = model.Mul([fpa_b2, fpa_b3], 'fpa_b2b3')
+    fpa_output = model.Add(
+        [fpa_b2b3, fpa_b1],
+        'fpa_output',
+        broadcast=1,
+        axis=0
+    )
+    return fpa_output
+
+def add_gau(
+    model, fpn_top, fpn_lateral, fpn_bottom, dim_top, dim_lateral
+):
+    xavier_fill = ('XavierFill', {})
+    # lateral conv3*3
+    gau_b1 = model.Conv(
+        fpn_lateral,
+        fpn_bottom + 'gau_b1',
+        dim_in=dim_lateral,
+        dim_out=dim_top,
+        kernel=3,
+        stride=1,
+        pad=1,
+        weight_init=xavier_fill,
+        bias_init=const_fill(0.0)
+    )
+
+    # fpn_top global pool
+    gau_b2 = model.AveragePool(
+        fpn_top, 
+        fpn_bottom + '_gua_b2',
+        global_pooling=True,
+        # order='NCHW',
+        engine='CUDNN', 
+    )
+
+    # fpn_top upsampling
+    gau_b3 = model.net.UpsampleNearest(fpn_top, fpn_bottom + 'gau_b3', scale=2)
+
+    gau_b1b2 = model.Mul(
+        [gau_b1, gau_b2],
+        fpn_bottom + 'gau_b1b2',
+        broadcast=1,
+        axis=0
+    )
+    # Sum lateral and top-down
+    model.net.Sum([gau_b1b2, gau_b3], fpn_bottom)
+
+
 
 
 def add_fpn(model, fpn_level_info):
