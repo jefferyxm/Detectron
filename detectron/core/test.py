@@ -49,7 +49,7 @@ import detectron.utils.keypoints as keypoint_utils
 logger = logging.getLogger(__name__)
 
 
-def im_detect_all(model, im, box_proposals, timers=None):
+def im_detect_all(model, im, box_proposals, timers=None, entry=None):
     if timers is None:
         timers = defaultdict(Timer)
 

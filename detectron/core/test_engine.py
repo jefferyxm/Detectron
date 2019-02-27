@@ -36,6 +36,7 @@ from detectron.core.rpn_generator import generate_rpn_on_dataset
 from detectron.core.rpn_generator import generate_rpn_on_range
 from detectron.core.test import im_detect_all
 from detectron.datasets import task_evaluation
+from detectron.datasets.icdar_evaluation import icdar_eval
 from detectron.datasets.json_dataset import JsonDataset
 from detectron.modeling import model_builder
 from detectron.utils.io import save_object
@@ -126,13 +127,14 @@ def run_inference(
             )
 
     all_results = result_getter()
+
     if check_expected_results and is_parent:
         task_evaluation.check_expected_results(
             all_results,
             atol=cfg.EXPECTED_RESULTS_ATOL,
             rtol=cfg.EXPECTED_RESULTS_RTOL
         )
-        task_evaluation.log_copy_paste_friendly_results(all_results)
+        # task_evaluation.log_copy_paste_friendly_results(all_results)
 
     return all_results
 
@@ -163,6 +165,29 @@ def test_net_on_dataset(
     results = task_evaluation.evaluate_all(
         dataset, all_boxes, all_segms, all_keyps, output_dir
     )
+
+    # icdar validation
+    # zip all file in out_pt_dir
+    import zipfile
+    pt_zip_dir = os.path.join(output_dir, 'pt.zip')
+    output_pt_dir = os.path.join(output_dir, 'pt/')
+    z = zipfile.ZipFile(pt_zip_dir, 'w', zipfile.ZIP_DEFLATED)
+
+    for dirpath, dirnames, filenames in os.walk(output_pt_dir):
+        for filename in filenames:
+            z.write(os.path.join(dirpath, filename), filename)
+    z.close()
+
+    # validation using icdar inferface
+    gt_zip_dir = './data/gt.zip'
+    param_dict = dict(
+        # gt zip file path
+        g = gt_zip_dir,
+        # prediction zip file path
+        s = pt_zip_dir,
+    )
+    result_dict = icdar_eval(param_dict)
+
     return results
 
 
@@ -255,7 +280,7 @@ def test_net(
         im = cv2.imread(entry['image'])
         with c2_utils.NamedCudaScope(gpu_id):
             cls_boxes_i, cls_segms_i, cls_keyps_i = im_detect_all(
-                model, im, box_proposals, timers
+                model, im, box_proposals, timers, entry
             )
 
         extend_results(i, all_boxes, cls_boxes_i)
@@ -300,8 +325,23 @@ def test_net(
                 thresh=cfg.VIS_TH,
                 box_alpha=0.8,
                 dataset=dataset,
-                show_class=True
+                show_class=True,
+                gen_res_file=True
             )
+        else:
+            # only get pt file
+            im_name = os.path.splitext(os.path.basename(entry['image']))[0]
+            vis_utils.post_process_detection(
+                    im[:, :, ::-1],
+                    '{:d}_{:s}'.format(i, im_name),
+                    os.path.join(output_dir, 'pt/'),
+                    cls_boxes_i,
+                    segms=cls_segms_i,
+                    keypoints=cls_keyps_i,
+                    thresh=cfg.VIS_TH,
+                    gen_res_file=True
+                )
+        
 
     cfg_yaml = yaml.dump(cfg)
     if ind_range is not None:
