@@ -179,7 +179,12 @@ def test_net_on_dataset(
     z.close()
 
     # validation using icdar inferface
-    gt_zip_dir = './data/gt.zip'
+    dataset_name = cfg.TEST.DATASETS[0]
+    gt_zip_dir=' '
+    if dataset_name == 'icdar_2015_val':
+        gt_zip_dir = './data/gt15.zip'
+    elif dataset_name == 'icdar_2017_val':
+        gt_zip_dir = './data/gt17.zip'
     param_dict = dict(
         # gt zip file path
         g = gt_zip_dir,
