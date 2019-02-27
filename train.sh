@@ -2,7 +2,7 @@
 export CUDA_VISIBLE_DEVICES=0
 python2 tools/train_net.py \
     --cfg configs/icdar/e2e_mask_rcnn_R-50-FPN_1x.yaml \
-    OUTPUT_DIR data/exp02004
+    OUTPUT_DIR data/exp02006
 
 
 # ---------------ada_exp01------------------- 
@@ -76,3 +76,14 @@ python2 tools/train_net.py \
 # ------------exp02004------------------------
 #  deform convolution on icdar 2015,
 #  fintune on icdar 2017
+
+# ------------exp02004_1------------------------
+#  deform convolution on icdar 2015,
+#  fintune on best model on exp02004
+
+# ------------exp02005------------------------
+#  pyramid attention network training on icdar 2017,
+
+
+# ------------exp02006-----------------------
+# pyramid attention network training on icdar 2015,
