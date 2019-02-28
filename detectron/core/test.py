@@ -170,7 +170,7 @@ def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None):
 
     if cfg.TEST.BBOX_REG:
         # Apply bounding-box regression deltas
-        box_deltas = workspace.FetchBlob(core.ScopedName('bbox_pred')).squeeze()
+        box_deltas = workspace.FetchBlob(core.ScopedName('bbox_pred1')).squeeze()
         # In case there is 1 proposal
         box_deltas = box_deltas.reshape([-1, box_deltas.shape[-1]])
         if cfg.MODEL.CLS_AGNOSTIC_BBOX_REG:

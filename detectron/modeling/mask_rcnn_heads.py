@@ -53,7 +53,7 @@ def add_mask_rcnn_outputs(model, blob_in, dim):
         # name)
         blob_out = model.FC(
             blob_in,
-            'mask_fcn_logits',
+            'mask_fcn_logits1',
             dim,
             num_cls * cfg.MRCNN.RESOLUTION**2,
             weight_init=gauss_fill(0.001),
@@ -70,7 +70,7 @@ def add_mask_rcnn_outputs(model, blob_in, dim):
         )
         blob_out = model.Conv(
             blob_in,
-            'mask_fcn_logits',
+            'mask_fcn_logits1',
             dim,
             num_cls,
             kernel=1,
@@ -82,7 +82,7 @@ def add_mask_rcnn_outputs(model, blob_in, dim):
 
         if cfg.MRCNN.UPSAMPLE_RATIO > 1:
             blob_out = model.BilinearInterpolation(
-                'mask_fcn_logits', 'mask_fcn_logits_up', num_cls, num_cls,
+                'mask_fcn_logits1', 'mask_fcn_logits1_up', num_cls, num_cls,
                 cfg.MRCNN.UPSAMPLE_RATIO
             )
 
