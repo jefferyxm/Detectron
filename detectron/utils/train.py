@@ -87,8 +87,8 @@ def train_model(tb_logger=None):
             tb_logger.write_scalars(tb_stats, cur_iter)
 
         # run validation on dataset
-        if (cur_iter % 7200) == 0 and cur_iter > start_iter:
-        # if (cur_iter % 7200) == 0:
+        # if (cur_iter % 1000) == 0 and cur_iter > start_iter:
+        if (cur_iter % 1000) == 0:
             hmean = ve.run_validation_icdar(val_model, val_dataset, val_roidb, cur_iter, val_output_dir, tb_logger)
             if hmean > last_val_hmean:
                 tb_logger.write_scalars(dict(
