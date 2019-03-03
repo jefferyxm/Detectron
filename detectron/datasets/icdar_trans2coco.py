@@ -28,6 +28,14 @@ if year == '2015':
 elif year == '2017':
     dataset_dir = './data/icdar/icdar17/'
 
+w_rep=[]
+h_rep=[]
+wh_rep=[]
+
+wh_count=np.zeros((19))
+wh_ref=np.array([1.0/10, 1.0/9, 1.0/8, 1.0/7, 1.0/6, 1.0/5, 1.0/4, 1.0/3, 1.0/2, 1.0, 
+                2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0])
+
 index = 0
 if year == '2015':
     if state =='train':
@@ -123,6 +131,11 @@ for _, _, files in os.walk(dataset_dir + state + '/'):
                 py = points[1::2]
                 anno_dict['bbox'] = [min(px), min(py), max(px)-min(px), max(py)-min(py)]
 
+                dis = np.abs((max(px)-min(px))*1.0/(max(py)-min(py)) - wh_ref )
+                list_dis = dis.tolist()
+                idx = list_dis.index(min(list_dis))
+                wh_count[idx] = wh_count[idx] + 1
+
                 anno_dict['id'] = instance_id
                 instance_id = instance_id + 1
 
@@ -131,6 +144,18 @@ for _, _, files in os.walk(dataset_dir + state + '/'):
                 
             index = index + 1
 
+import matplotlib.pyplot as plt
+
+name_list=['1/10', '1/9', '1/8', '1/7', '1/6', '1/5', '1/4', '1/3', '1/2', '1/1',
+            '2/1', '3/1', '4/1', '5/1', '6/1', '7/1', '8/1', '9/1', '10/1']
+plt.bar(range(len(wh_count)), wh_count, tick_label=name_list)
+plt.xlabel('w/h')
+plt.ylabel('count')
+
+# for name_num in range(len(name_list)):
+#     plt.text(name_num-0.2,-10,name_list[name_num],rotation=25)
+
+plt.show()
 
 print index
 print instance_id
