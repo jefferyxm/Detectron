@@ -295,7 +295,7 @@ def _get_rpn_blobs(im_height, im_width, foas, all_anchors, gt_boxes):
     return blobs_out[0] if len(blobs_out) == 1 else blobs_out
 
 # ------------------------------------------------------------------------------------
-
+id=0
 def add_adarpn_blobs(blobs, im_scales, roidb):
     """only support fpn manner."""
     if cfg.FPN.FPN_ON and cfg.FPN.MULTILEVEL_RPN:
@@ -352,6 +352,23 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
             # )
 
             # for each fpn level, compute the target
+
+            DBG=1
+            if DBG:
+                # show label in image
+                import matplotlib.pyplot as plt
+                import cv2
+                im = cv2.imread(entry['image'])
+                im = cv2.resize(im, (0,0), fx=scale, fy=scale)
+                
+                im_plt = im[:,:,(2,1,0)]
+                plt.cla()
+                plt.imshow(im_plt)
+                num_pps=0
+                global id
+                id = id + 1
+
+
             for i, lvl in enumerate(range(k_min, k_max + 1)):
                 
                 anchor_size = (cfg.FPN.RPN_ANCHOR_START_SIZE * 2.**(lvl - k_min), )
@@ -474,20 +491,20 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
                     cplogidx = np.where(this_level_wh > 0 ) 
                     this_level_wh[ cplogidx ] = np.log(this_level_wh[ cplogidx ])
 
-                    DBG=0
+                    DBG=1
                     if DBG:
                         # show label in image
-                        import matplotlib.pyplot as plt
-                        import cv2
-                        im = cv2.imread(entry['image'])
-                        im = cv2.resize(im, (0,0), fx=scale, fy=scale)
+                        # import matplotlib.pyplot as plt
+                        # import cv2
+                        # im = cv2.imread(entry['image'])
+                        # im = cv2.resize(im, (0,0), fx=scale, fy=scale)
                         
-                        im_plt = im[:,:,(2,1,0)]
-                        plt.cla()
-                        plt.imshow(im_plt)
+                        # im_plt = im[:,:,(2,1,0)]
+                        # plt.cla()
+                        # plt.imshow(im_plt)
 
                         tg_index = np.where(this_level_label==1)[0]
-                        print(len(tg_index))
+                        num_pps = num_pps + len(tg_index)
 
                         for tg in tg_index:
                             w = np.exp(this_level_wh[tg][0])*anchor_size[0]
@@ -498,8 +515,11 @@ def add_adarpn_blobs(blobs, im_scales, roidb):
 
                         for gt in valid_gts:
                             plt.gca().add_patch(plt.Rectangle((gt[0], gt[1]), gt[2]-gt[0], gt[3]-gt[1] ,fill=False, edgecolor='g', linewidth=1))
-
-                        plt.show()
+                        if lvl == k_max:
+                            print(num_pps)
+                            plt.savefig('/home/extrom/xiem/contrast/2-'+str(id) + '.jpg')
+                            plt.show()
+                            
 
                 # subsampling positive or negetive examples
                 fg_idx = np.where(this_level_label==1)[0]
