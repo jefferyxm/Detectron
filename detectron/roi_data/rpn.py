@@ -96,7 +96,7 @@ def add_rpn_blobs(blobs, im_scales, roidb):
         if cfg.FPN.FPN_ON and cfg.FPN.MULTILEVEL_RPN:
             # RPN applied to many feature levels, as in the FPN paper
             rpn_blobs = _get_rpn_blobs(
-                im_height, im_width, foas, all_anchors, gt_rois
+                im_height, im_width, foas, all_anchors, gt_rois, entry['image'], scale
             )
             for i, lvl in enumerate(range(k_min, k_max + 1)):
                 for k, v in rpn_blobs[i].items():
@@ -128,7 +128,7 @@ def add_rpn_blobs(blobs, im_scales, roidb):
     return True
 
 
-def _get_rpn_blobs(im_height, im_width, foas, all_anchors, gt_boxes):
+def _get_rpn_blobs(im_height, im_width, foas, all_anchors, gt_boxes, image_path, scale):
     total_anchors = all_anchors.shape[0]
     straddle_thresh = cfg.TRAIN.RPN_STRADDLE_THRESH
 
@@ -194,6 +194,25 @@ def _get_rpn_blobs(im_height, im_width, foas, all_anchors, gt_boxes):
         )
         labels[disable_inds] = -1
     fg_inds = np.where(labels == 1)[0]
+
+
+    if 1:
+        print(len(fg_inds))
+        print(image_path)
+        print(gt_to_anchor_max)
+        import cv2
+        img = cv2.imread(image_path)
+        img = cv2.resize(img, dsize=(0,0) ,fx=scale, fy=scale)
+        import matplotlib.pyplot as plt
+        im_plt = img[:,:,(2,1,0)]
+        plt.cla()
+        plt.imshow(im_plt)
+        for a_idx in range(len(fg_inds)):
+            plt.gca().add_patch(plt.Rectangle((anchors[fg_inds[a_idx]][0], anchors[fg_inds[a_idx]][1] ), \
+                            anchors[fg_inds[a_idx]][2] - anchors[fg_inds[a_idx]][0], anchors[fg_inds[a_idx]][3] - anchors[fg_inds[a_idx]][1], \
+                            fill=False, edgecolor='r', linewidth=1))
+        plt.show()
+        print('======')
 
     # subsample negative labels if we have too many
     # (samples with replacement, but since the set of bg inds is large most
