@@ -501,8 +501,215 @@ def add_fpn_rpn_outputs(model, blobs_in, dim_in, spatial_scales):
                 ap_size=cfg.FPN.RPN_ANCHOR_START_SIZE * 2.**(lvl - k_min)
             )
 
+
+def add_fpn_rpn_attention(model, blobs_in, dim_in, spatial_scales):
+
+    dim_out = dim_in
+    k_max = cfg.FPN.RPN_MAX_LEVEL  # coarsest level of pyramid
+    k_min = cfg.FPN.RPN_MIN_LEVEL  # finest level of pyramid
+
+    for lvl in range(k_min, k_max + 1):
+
+        # bl_in = blobs_in[k_max - lvl]  # blobs_in is in reversed order
+        # sc = spatial_scales[k_max - lvl]  # in reversed order
+
+        bl_in = blobs_in[::-1][lvl-k_min]
+        sc = spatial_scales[::-1][lvl-k_min]
+        slvl = str(lvl)
+
+        if lvl == k_min:
+            # Create conv ops with randomly initialized weights and
+            # zeroed biases for the first FPN level; these will be shared by
+            # all other FPN levels
+            # RPN hidden representation
+            
+            #1 add position attention module 
+            conv_rpn_fpn = model.Conv(
+                bl_in,
+                'conv_rpn_fpn' + slvl,
+                dim_in,
+                dim_out,
+                kernel=3,
+                pad=1,
+                stride=1,
+                weight_init=gauss_fill(0.01),
+                bias_init=const_fill(0.0)
+            )
+            model.Relu(conv_rpn_fpn, conv_rpn_fpn)
+            pam_output = add_PAM(model, conv_rpn_fpn, dim_in, dim_out, slvl)
+
+            # Proposal classification scores
+            adarpn_cls_logits_fpn = model.Conv(
+                pam_output,
+                'adarpn_cls_logits_fpn' + slvl,
+                dim_in,
+                1,
+                kernel=1,
+                pad=0,
+                stride=1,
+                weight_init=gauss_fill(0.01),
+                bias_init=const_fill(0.0)
+            )
+            # Propasal w and h 
+            adarpn_bbox_wh_pred_fpn = model.Conv(
+                pam_output,
+                'adarpn_bbox_wh_pred_fpn' + slvl,
+                dim_in,
+                2,
+                kernel=1,
+                pad=0,
+                stride=1,
+                weight_init=gauss_fill(0.01),
+                bias_init=const_fill(0.0)
+            )
+
+            # Proposal bbox regression deltas
+            adarpn_bbox_pred_fpn = model.Conv(
+                pam_output,
+                'adarpn_bbox_pred_fpn' + slvl,
+                dim_in,
+                4,
+                kernel=1,
+                pad=0,
+                stride=1,
+                weight_init=const_fill(0.0),
+                bias_init=const_fill(0.0)
+            )
+        else:
+            # Share weights and biases
+            sk_min = str(k_min)
+            # RPN hidden representation
+            conv_rpn_fpn = model.ConvShared(
+                bl_in,
+                'conv_rpn_fpn' + slvl,
+                dim_in,
+                dim_out,
+                kernel=3,
+                pad=1,
+                stride=1,
+                weight='conv_rpn_fpn' + sk_min + '_w',
+                bias='conv_rpn_fpn' + sk_min + '_b'
+            )
+            model.Relu(conv_rpn_fpn, conv_rpn_fpn)
+            # Proposal classification scores
+            adarpn_cls_logits_fpn = model.ConvShared(
+                conv_rpn_fpn,
+                'adarpn_cls_logits_fpn' + slvl,
+                dim_in,
+                1,
+                kernel=1,
+                pad=0,
+                stride=1,
+                weight='adarpn_cls_logits_fpn' + sk_min + '_w',
+                bias='adarpn_cls_logits_fpn' + sk_min + '_b'
+            )
+            adarpn_bbox_wh_pred_fpn = model.ConvShared(
+                conv_rpn_fpn,
+                'adarpn_bbox_wh_pred_fpn' + slvl,
+                dim_in,
+                2,
+                kernel=1,
+                pad=0,
+                stride=1,
+                weight='adarpn_bbox_wh_pred_fpn' + sk_min + '_w',
+                bias='adarpn_bbox_wh_pred_fpn' + sk_min + '_b'
+            )
+            # Proposal bbox regression deltas
+            adarpn_bbox_pred_fpn = model.ConvShared(
+                conv_rpn_fpn,
+                'adarpn_bbox_pred_fpn' + slvl,
+                dim_in,
+                4,
+                kernel=1,
+                pad=0,
+                stride=1,
+                weight='adarpn_bbox_pred_fpn' + sk_min + '_w',
+                bias='adarpn_bbox_pred_fpn' + sk_min + '_b'
+            )
+
+        if not model.train or cfg.MODEL.FASTER_RCNN:
+            # Proposals are needed during:
+            #  1) inference (== not model.train) for RPN only and Faster R-CNN
+            #  OR
+            #  2) training for Faster R-CNN
+            # Otherwise (== training for RPN only), proposals are not needed
+            lvl_anchors = generate_anchors(
+                stride=2.**lvl,
+                sizes=(cfg.FPN.RPN_ANCHOR_START_SIZE * 2.**(lvl - k_min), ),
+                aspect_ratios=cfg.FPN.RPN_ASPECT_RATIOS
+            )
+            adarpn_cls_probs_fpn = model.net.Sigmoid(
+                adarpn_cls_logits_fpn, 'adarpn_cls_probs_fpn' + slvl
+            )
+            model.GenerateProposals(
+                [adarpn_cls_probs_fpn, adarpn_bbox_wh_pred_fpn, adarpn_bbox_pred_fpn, 'im_info'],
+                ['rpn_rois_fpn' + slvl, 'rpn_roi_probs_fpn' + slvl],
+                anchors=lvl_anchors,
+                spatial_scale=sc,
+                ap_size=cfg.FPN.RPN_ANCHOR_START_SIZE * 2.**(lvl - k_min)
+            )
+
+def add_PAM(model, blobs_in, dim_in, dim_out, slvl):
+    proj_query = model.Conv(
+        blobs_in, 'fpn_pam_query' + slvl, dim_in, int(dim_out/8), 
+        kernel=1, pad=1, stride=1,
+        weight_init=gauss_fill(0.01), bias_init=const_fill(0.0)
+    )
+    # reshape from (B,C,W,H) -> (B,C,H*W)
+    proj_query = model.Reshape(
+        proj_query, ['fpn_pam_query_reshape' + slvl, 'pam_query_old_shape'+slvl ],
+        shape=[cfg.TRAIN.IMS_PER_BATCH, int(dim_out/8), -1]
+    )[0]
+    # transpose
+    # proj_query_transpose = model.Transpose(
+    #     proj_query, 'pam_query_transpose' + slvl, 
+    #     axes = (0, 2, 1)
+    # )
+
+    proj_key = model.Conv(
+        blobs_in, 'fpn_pam_key' + slvl, dim_in, int(dim_out/8), 
+        kernel=1, pad=1, stride=1,
+        weight_init=gauss_fill(0.01), bias_init=const_fill(0.0)
+    )
+    # reshape from (B,C,W,H) -> (B,C,H*W)
+    proj_key = model.Reshape(
+        proj_key, ['fpn_pam_key_reshape' + slvl, 'pam_key_old_shape' + slvl ],
+        shape=[cfg.TRAIN.IMS_PER_BATCH, int(dim_out/8), -1]
+    )[0]
+
+    energy = model.MatMul(
+        [proj_query, proj_key], 'fpn_pam_energy'+slvl, trans_a=1, trans_b=0
+    )
+    attention = model.Softmax(
+        energy, 'fpn_pam_attention'+slvl, axis = -1, engine='CUDNN'
+    )
+
+    proj_val = model.Conv(
+        blobs_in, 'fpn_pam_pval' + slvl, dim_in, dim_out,
+        kernel=1, pad=1, stride=1,
+        weight_init=gauss_fill(0.01), bias_init=const_fill(0.0)
+    )
+    proj_val = model.Reshape(
+        proj_val, ['fpn_pam_pval_reshape'+slvl, 'pam_pval_old_shape'+slvl],
+        shape=[cfg.TRAIN.IMS_PER_BATCH, dim_out, -1]
+    )[0]
+
+    pam_out = model.MatMul(
+        [proj_val, attention], 'fpn_pam_out'+slvl, trans_a=0, trans_b=1
+    )
+    # reshape as blobs_in
+    pam_out = model.Reshape(
+        [pam_out, blobs_in], ['fpn_pam_out_reshape'+ slvl, 'pam_out_old_shape'+slvl]
+    )[0]
+    pam_out = model.Scale(
+        pam_out, 'fpn_pam_out_scale'+slvl, scale=1.0
+    )
+    pam_out = model.Add(
+        [blobs_in, pam_out], 'fpn_pam_out_finnal'+slvl, 
+    )
+    return pam_out
+
 def add_deform_feature(model, conv_blobs_in, dim_in):
-    
     dim_out = dim_in
     k_max = cfg.FPN.RPN_MAX_LEVEL  # coarsest level of pyramid
     k_min = cfg.FPN.RPN_MIN_LEVEL  # finest level of pyramid
@@ -570,7 +777,7 @@ def add_deform_feature(model, conv_blobs_in, dim_in):
             )
         deform_w = model.create_param(
                 param_name='deform_conv_' + slvl + '_w',
-                shape=[dim_in, 64, 3, 3],
+                shape=[dim_in, cfg.FPN.DIM, 3, 3],
                 initializer=WeightInitializer,
                 tags=ParameterTags.WEIGHT
             )
@@ -587,7 +794,6 @@ def add_deform_feature(model, conv_blobs_in, dim_in):
         inputs = ([conv_bl_in, deform_offset, deform_w, deform_b])
         inputs = core._RectifyInputOutput(inputs)
         for item in inputs:
-
             if not model.net.BlobIsDefined(item):
                 assert item.Net() != model.net
                 model.net.AddExternalInput(item)

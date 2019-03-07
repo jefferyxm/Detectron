@@ -8,8 +8,12 @@ pylab.rcParams['figure.figsize'] = (8.0, 10.0)
 
 state = 'train'
 
-data_dir = './data/icdar/icdar17/'
-anno_file = data_dir + 'annotations/anno_' + state + '_icdar17.json'
+# data_dir = './data/icdar/icdar17/'
+# anno_file = data_dir + 'annotations/anno_' + state + '_icdar17.json'
+
+data_dir = './data/synthtext/'
+anno_file = data_dir + 'annotations/anno_' + state + '_synthtext.json'
+
 
 coco = COCO(anno_file)
 
@@ -30,7 +34,7 @@ cnt = 0
 for i in imgIds:
     
     cnt = cnt + 1
-    if cnt >1000:
+    if cnt >1:
         img = coco.loadImgs(i)[0]
         print img
         I = io.imread(data_dir + state + '/' + img['file_name'])
