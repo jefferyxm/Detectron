@@ -362,7 +362,7 @@ def add_fpn_rpn_outputs(model, blobs_in, dim_in, spatial_scales):
 
         # bl_in = blobs_in[k_max - lvl]  # blobs_in is in reversed order
         # sc = spatial_scales[k_max - lvl]  # in reversed order
-
+        
         if use_fine_anchor:
             bl_in = blobs_in_up[lvl-k_min]
             sc = spatial_scales[::-1][lvl-k_min]
@@ -370,9 +370,7 @@ def add_fpn_rpn_outputs(model, blobs_in, dim_in, spatial_scales):
             bl_in = blobs_in[::-1][lvl-k_min]
             sc = spatial_scales[::-1][lvl-k_min]
 
-
         slvl = str(lvl)
-
         if lvl == k_min:
             # Create conv ops with randomly initialized weights and
             # zeroed biases for the first FPN level; these will be shared by
@@ -508,38 +506,25 @@ def add_fpn_rpn_attention(model, blobs_in, dim_in, spatial_scales):
     k_max = cfg.FPN.RPN_MAX_LEVEL  # coarsest level of pyramid
     k_min = cfg.FPN.RPN_MIN_LEVEL  # finest level of pyramid
 
+    pam_blobs_in = blobs_in[::-1]
+    pam_blobs = add_PAM_fusion(model, pam_blobs_in, dim_in, dim_out)
+    
+
     for lvl in range(k_min, k_max + 1):
 
         # bl_in = blobs_in[k_max - lvl]  # blobs_in is in reversed order
         # sc = spatial_scales[k_max - lvl]  # in reversed order
 
-        bl_in = blobs_in[::-1][lvl-k_min]
+        pam_blob = pam_blobs[lvl-k_min]
         sc = spatial_scales[::-1][lvl-k_min]
         slvl = str(lvl)
 
         if lvl == k_min:
-            # Create conv ops with randomly initialized weights and
-            # zeroed biases for the first FPN level; these will be shared by
-            # all other FPN levels
-            # RPN hidden representation
-            
-            #1 add position attention module 
-            conv_rpn_fpn = model.Conv(
-                bl_in,
-                'conv_rpn_fpn' + slvl,
-                dim_in,
-                dim_out,
-                kernel=3,
-                pad=1,
-                stride=1,
-                weight_init=gauss_fill(0.01),
-                bias_init=const_fill(0.0)
-            )
-            model.Relu(conv_rpn_fpn, conv_rpn_fpn)
-            
+
+            # pam_out = add_PAM(model, conv_rpn_fpn, dim_in, dim_out, slvl)
             # Proposal classification scores
             adarpn_cls_logits_fpn = model.Conv(
-                conv_rpn_fpn,
+                pam_blob,
                 'adarpn_cls_logits_fpn' + slvl,
                 dim_in,
                 1,
@@ -551,7 +536,7 @@ def add_fpn_rpn_attention(model, blobs_in, dim_in, spatial_scales):
             )
             # Propasal w and h 
             adarpn_bbox_wh_pred_fpn = model.Conv(
-                conv_rpn_fpn,
+                pam_blob,
                 'adarpn_bbox_wh_pred_fpn' + slvl,
                 dim_in,
                 2,
@@ -564,7 +549,7 @@ def add_fpn_rpn_attention(model, blobs_in, dim_in, spatial_scales):
 
             # Proposal bbox regression deltas
             adarpn_bbox_pred_fpn = model.Conv(
-                conv_rpn_fpn,
+                pam_blob,
                 'adarpn_bbox_pred_fpn' + slvl,
                 dim_in,
                 4,
@@ -577,22 +562,9 @@ def add_fpn_rpn_attention(model, blobs_in, dim_in, spatial_scales):
         else:
             # Share weights and biases
             sk_min = str(k_min)
-            # RPN hidden representation
-            conv_rpn_fpn = model.ConvShared(
-                bl_in,
-                'conv_rpn_fpn' + slvl,
-                dim_in,
-                dim_out,
-                kernel=3,
-                pad=1,
-                stride=1,
-                weight='conv_rpn_fpn' + sk_min + '_w',
-                bias='conv_rpn_fpn' + sk_min + '_b'
-            )
-            model.Relu(conv_rpn_fpn, conv_rpn_fpn)
-            # Proposal classification scores
+
             adarpn_cls_logits_fpn = model.ConvShared(
-                conv_rpn_fpn,
+                pam_blob,
                 'adarpn_cls_logits_fpn' + slvl,
                 dim_in,
                 1,
@@ -603,7 +575,7 @@ def add_fpn_rpn_attention(model, blobs_in, dim_in, spatial_scales):
                 bias='adarpn_cls_logits_fpn' + sk_min + '_b'
             )
             adarpn_bbox_wh_pred_fpn = model.ConvShared(
-                conv_rpn_fpn,
+                pam_blob,
                 'adarpn_bbox_wh_pred_fpn' + slvl,
                 dim_in,
                 2,
@@ -615,7 +587,7 @@ def add_fpn_rpn_attention(model, blobs_in, dim_in, spatial_scales):
             )
             # Proposal bbox regression deltas
             adarpn_bbox_pred_fpn = model.ConvShared(
-                conv_rpn_fpn,
+                pam_blob,
                 'adarpn_bbox_pred_fpn' + slvl,
                 dim_in,
                 4,
@@ -699,9 +671,130 @@ def add_PAM(model, blobs_in, dim_in, dim_out, slvl):
         pam_out, 'fpn_pam_out_scale'+slvl, scale=1.0
     )
     pam_out = model.Add(
-        [blobs_in, 'fpn_pam_pval' + slvl], 'fpn_pam_out_finnal'+slvl, 
+        [blobs_in, pam_out], 'fpn_pam_out_finnal'+slvl, 
     )
     return pam_out
+
+
+
+
+def add_PAM_fusion(model, blobs_in, dim_in, dim_out):
+    # adjust pam input
+    p2_sub = model.MaxPool(
+        blobs_in[0], 'pam_p2_sub', kernel=3, pad=1, stride=2
+    )
+    p4_up = model.net.UpsampleNearest(blobs_in[2], 'pam_p4_up', scale=2)
+    fpn_sum = model.Sum(
+        [blobs_in[1], p2_sub, p4_up], 'pam_fpn_sum'
+    )
+    pam_input = model.Conv(
+        fpn_sum, 'pam_input', dim_in, dim_out, 
+        kernel=3, pad=1, stride=1,
+        weight_init=gauss_fill(0.01), bias_init=const_fill(0.0)
+    )
+    pam_input = model.Relu(pam_input, pam_input)
+
+    # get attention map
+    proj_query = model.Conv(
+        pam_input, 'fpn_pam_query' , dim_in, int(dim_out/8), 
+        kernel=1, pad=0, stride=1,
+        weight_init=gauss_fill(0.01), bias_init=const_fill(0.0)
+    )
+    proj_query = model.Reshape(
+        proj_query, ['fpn_pam_query_reshape', 'pam_query_old_shape' ],
+        shape=[cfg.TRAIN.IMS_PER_BATCH, int(dim_out/8), -1]
+    )[0]
+
+    proj_key = model.Conv(
+        pam_input, 'fpn_pam_key', dim_in, int(dim_out/8), 
+        kernel=1, pad=0, stride=1,
+        weight_init=gauss_fill(0.01), bias_init=const_fill(0.0)
+    )
+    # reshape from (B,C,W,H) -> (B,C,H*W)
+    proj_key = model.Reshape(
+        proj_key, ['fpn_pam_key_reshape', 'pam_key_old_shape'],
+        shape=[cfg.TRAIN.IMS_PER_BATCH, int(dim_out/8), -1]
+    )[0]
+
+    energy = model.BatchMatMul(
+        [proj_query, proj_key], 'fpn_pam_energy', trans_a=1, trans_b=0
+    )
+    attention = model.Softmax(
+        energy, 'fpn_pam_attention', axis=-1
+    )
+
+    # add attention on each fpn level
+    # p2
+    p2_prj = model.Conv(
+        p2_sub, 'p2_pam_prj', dim_in, dim_out,
+        kernel=1, pad=0, stride=1,
+        weight_init=gauss_fill(0.01), bias_init=const_fill(0.0)
+    )
+    p2_prj = model.Reshape(
+        p2_prj, ['p2_pam_prj_reshape', 'p2_pam_prj_old_shape'],
+        shape=[cfg.TRAIN.IMS_PER_BATCH, dim_out, -1]
+    )[0]
+    p2_pam = model.BatchMatMul(
+        [p2_prj, attention], 'p2_pam_out', trans_a=0, trans_b=1
+    )
+    # reshape as blobs_in
+    p2_pam = model.Reshape(
+        [p2_pam, 'p2_pam_prj_old_shape'], ['p2_pam_out_reshape', 'p2_pam_out_old_shape']
+    )[0]
+    p2_pam_norm = model.net.UpsampleNearest(p2_pam, 'p2_pam_normal', scale=2)
+    p2_out = model.Add(
+        [blobs_in[0], p2_pam_norm], 'p2_pam_out_finnal', 
+    )
+
+    #p3
+    p3_prj = model.Conv(
+        blobs_in[1], 'p3_pam_prj', dim_in, dim_out,
+        kernel=1, pad=0, stride=1,
+        weight_init=gauss_fill(0.01), bias_init=const_fill(0.0)
+    )
+    p3_prj = model.Reshape(
+        p3_prj, ['p3_pam_prj_reshape', 'p3_pam_prj_old_shape'],
+        shape=[cfg.TRAIN.IMS_PER_BATCH, dim_out, -1]
+    )[0]
+    p3_pam = model.BatchMatMul(
+        [p3_prj, attention], 'p3_pam_out', trans_a=0, trans_b=1
+    )
+    # reshape as blobs_in
+    p3_pam = model.Reshape(
+        [p3_pam, 'p3_pam_prj_old_shape'], ['p3_pam_out_reshape', 'p3_pam_out_old_shape']
+    )[0]
+    p3_out = model.Add(
+        [blobs_in[1], p3_pam], 'p3_pam_out_finnal'
+    )
+
+    # p4
+    p4_prj = model.Conv(
+        p4_up, 'p4_pam_prj', dim_in, dim_out,
+        kernel=1, pad=0, stride=1,
+        weight_init=gauss_fill(0.01), bias_init=const_fill(0.0)
+    )
+    p4_prj = model.Reshape(
+        p4_prj, ['p4_pam_prj_reshape', 'p4_pam_prj_old_shape'],
+        shape=[cfg.TRAIN.IMS_PER_BATCH, dim_out, -1]
+    )[0]
+    
+    p4_pam = model.BatchMatMul(
+        [p4_prj, attention], 'p4_pam_out', trans_a=0, trans_b=1
+    )
+    # reshape as blobs_in
+    p4_pam = model.Reshape(
+        [p4_pam, 'p4_pam_prj_old_shape'], ['p4_pam_out_reshape', 'p4_pam_out_old_shape']
+    )[0]
+    p4_pam_pool = model.MaxPool(p4_pam, 'p4_pam_pool', kernel=3, pad=1, stride=2)
+    p4_out = model.Add(
+        [blobs_in[2], p4_pam_pool], 'p4_pam_out_finnal'
+    )
+    return [p2_out, p3_out, p4_out]
+
+
+    
+
+
 
 def add_deform_feature(model, conv_blobs_in, dim_in):
     dim_out = dim_in
