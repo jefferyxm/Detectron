@@ -536,11 +536,10 @@ def add_fpn_rpn_attention(model, blobs_in, dim_in, spatial_scales):
                 bias_init=const_fill(0.0)
             )
             model.Relu(conv_rpn_fpn, conv_rpn_fpn)
-            pam_output = add_PAM(model, conv_rpn_fpn, dim_in, dim_out, slvl)
-
+            
             # Proposal classification scores
             adarpn_cls_logits_fpn = model.Conv(
-                pam_output,
+                conv_rpn_fpn,
                 'adarpn_cls_logits_fpn' + slvl,
                 dim_in,
                 1,
@@ -552,7 +551,7 @@ def add_fpn_rpn_attention(model, blobs_in, dim_in, spatial_scales):
             )
             # Propasal w and h 
             adarpn_bbox_wh_pred_fpn = model.Conv(
-                pam_output,
+                conv_rpn_fpn,
                 'adarpn_bbox_wh_pred_fpn' + slvl,
                 dim_in,
                 2,
@@ -565,7 +564,7 @@ def add_fpn_rpn_attention(model, blobs_in, dim_in, spatial_scales):
 
             # Proposal bbox regression deltas
             adarpn_bbox_pred_fpn = model.Conv(
-                pam_output,
+                conv_rpn_fpn,
                 'adarpn_bbox_pred_fpn' + slvl,
                 dim_in,
                 4,
@@ -652,7 +651,7 @@ def add_fpn_rpn_attention(model, blobs_in, dim_in, spatial_scales):
 def add_PAM(model, blobs_in, dim_in, dim_out, slvl):
     proj_query = model.Conv(
         blobs_in, 'fpn_pam_query' + slvl, dim_in, int(dim_out/8), 
-        kernel=1, pad=1, stride=1,
+        kernel=1, pad=0, stride=1,
         weight_init=gauss_fill(0.01), bias_init=const_fill(0.0)
     )
     # reshape from (B,C,W,H) -> (B,C,H*W)
@@ -660,15 +659,10 @@ def add_PAM(model, blobs_in, dim_in, dim_out, slvl):
         proj_query, ['fpn_pam_query_reshape' + slvl, 'pam_query_old_shape'+slvl ],
         shape=[cfg.TRAIN.IMS_PER_BATCH, int(dim_out/8), -1]
     )[0]
-    # transpose
-    # proj_query_transpose = model.Transpose(
-    #     proj_query, 'pam_query_transpose' + slvl, 
-    #     axes = (0, 2, 1)
-    # )
 
     proj_key = model.Conv(
         blobs_in, 'fpn_pam_key' + slvl, dim_in, int(dim_out/8), 
-        kernel=1, pad=1, stride=1,
+        kernel=1, pad=0, stride=1,
         weight_init=gauss_fill(0.01), bias_init=const_fill(0.0)
     )
     # reshape from (B,C,W,H) -> (B,C,H*W)
@@ -677,16 +671,16 @@ def add_PAM(model, blobs_in, dim_in, dim_out, slvl):
         shape=[cfg.TRAIN.IMS_PER_BATCH, int(dim_out/8), -1]
     )[0]
 
-    energy = model.MatMul(
+    energy = model.BatchMatMul(
         [proj_query, proj_key], 'fpn_pam_energy'+slvl, trans_a=1, trans_b=0
     )
     attention = model.Softmax(
-        energy, 'fpn_pam_attention'+slvl, axis = -1, engine='CUDNN'
+        energy, 'fpn_pam_attention'+slvl, axis=-1
     )
 
     proj_val = model.Conv(
         blobs_in, 'fpn_pam_pval' + slvl, dim_in, dim_out,
-        kernel=1, pad=1, stride=1,
+        kernel=1, pad=0, stride=1,
         weight_init=gauss_fill(0.01), bias_init=const_fill(0.0)
     )
     proj_val = model.Reshape(
@@ -694,18 +688,18 @@ def add_PAM(model, blobs_in, dim_in, dim_out, slvl):
         shape=[cfg.TRAIN.IMS_PER_BATCH, dim_out, -1]
     )[0]
 
-    pam_out = model.MatMul(
+    pam_out = model.BatchMatMul(
         [proj_val, attention], 'fpn_pam_out'+slvl, trans_a=0, trans_b=1
     )
     # reshape as blobs_in
     pam_out = model.Reshape(
-        [pam_out, blobs_in], ['fpn_pam_out_reshape'+ slvl, 'pam_out_old_shape'+slvl]
+        [pam_out, 'pam_pval_old_shape'+slvl], ['fpn_pam_out_reshape'+ slvl, 'pam_out_old_shape'+slvl]
     )[0]
     pam_out = model.Scale(
         pam_out, 'fpn_pam_out_scale'+slvl, scale=1.0
     )
     pam_out = model.Add(
-        [blobs_in, pam_out], 'fpn_pam_out_finnal'+slvl, 
+        [blobs_in, 'fpn_pam_pval' + slvl], 'fpn_pam_out_finnal'+slvl, 
     )
     return pam_out
 
