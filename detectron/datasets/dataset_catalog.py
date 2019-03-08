@@ -225,6 +225,18 @@ _DATASETS = {
             _DATA_DIR + '/icdar/icdar17/test',
         _ANN_FN:
             _DATA_DIR + '/icdar/icdar17/annotations/anno_test_icdar17.json'
+    },
+    'med_train': {
+        _IM_DIR:
+            _DATA_DIR + '/med/train',
+        _ANN_FN:
+            _DATA_DIR + '/med/annotations/anno_train_med.json'
+    },
+    'med_test': {
+        _IM_DIR:
+            _DATA_DIR + '/med/test',
+        _ANN_FN:
+            _DATA_DIR + '/med/annotations/anno_test_med.json'
     }
 }
 

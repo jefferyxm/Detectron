@@ -199,6 +199,8 @@ def run_validation_icdar(val_model, val_dataset, val_roidb, cur_iter, val_output
         gt_zip_dir = './data/gt15.zip'
     elif dataset_name == 'icdar_2017_val':
         gt_zip_dir = './data/gt17.zip'
+    elif dataset_name == 'med_test':
+        gt_zip_dir ='./data/med.zip'
     param_dict = dict(
         # gt zip file path
         g = gt_zip_dir,
