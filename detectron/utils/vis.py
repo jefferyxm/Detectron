@@ -251,7 +251,7 @@ def vis_one_image_opencv(
 def vis_one_image(
         im, im_name, output_dir, boxes, segms=None, keypoints=None, thresh=0.9,
         kp_thresh=2, dpi=200, box_alpha=0.0, dataset=None, show_class=False,
-        ext='pdf', out_when_no_box=False):
+        ext='jpg', out_when_no_box=False):
     """Visual debugging of detections."""
     ''' and output detection result for icdar format'''
 
@@ -349,7 +349,7 @@ def vis_one_image(
             for c in contour:
                 c = c.reshape((-1,2))
                 rotRect = cv2.minAreaRect(c)
-                minRect = np.int0(cv2.cv.BoxPoints(rotRect))
+                minRect = np.int0(cv2.boxPoints(rotRect))
                 
                 px = minRect[:,0]
                 py = minRect[:,1]
