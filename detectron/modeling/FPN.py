@@ -681,118 +681,138 @@ def add_PAM(model, blobs_in, dim_in, dim_out, slvl):
 def add_PAM_fusion(model, blobs_in, dim_in, dim_out):
     # adjust pam input
     p2_sub = model.MaxPool(
-        blobs_in[0], 'pam_p2_sub', kernel=3, pad=1, stride=2
+        blobs_in[0], 'pam_p2_sub1', kernel=3, pad=1, stride=2
     )
-    p4_up = model.net.UpsampleNearest(blobs_in[2], 'pam_p4_up', scale=2)
-    fpn_sum = model.Sum(
-        [blobs_in[1], p2_sub, p4_up], 'pam_fpn_sum'
+    pam_in2 = model.Conv(
+        p2_sub, 'pam_in2', dim_in, dim_in,
+        kernel=3, pad=1, stride=2,
+        weight_init=gauss_fill(0.01), bias_init=const_fill(0.0)
     )
-    pam_input = model.Conv(
-        fpn_sum, 'pam_input', dim_in, dim_out, 
+    model.Relu(pam_in2, pam_in2)
+
+    pam_in3 = model.Conv(
+        blobs_in[1], 'pam_in3', dim_in, dim_in,
+        kernel=3, pad=1, stride=2,
+        weight_init=gauss_fill(0.01), bias_init=const_fill(0.0)
+    )
+    model.Relu(pam_in3, pam_in3)
+
+    pam_in4 = model.Conv(
+        blobs_in[2], 'pam_in4', dim_in, dim_in,
         kernel=3, pad=1, stride=1,
         weight_init=gauss_fill(0.01), bias_init=const_fill(0.0)
     )
-    pam_input = model.Relu(pam_input, pam_input)
+    model.Relu(pam_in4, pam_in4)
 
-    # get attention map
-    proj_query = model.Conv(
-        pam_input, 'fpn_pam_query' , dim_in, int(dim_out/8), 
-        kernel=1, pad=0, stride=1,
+    pam_outs=[]
+    for lvl in range(2,5):
+        slvl = str(lvl)
+
+        # query
+        proj_query = model.Conv(
+            'pam_in'+slvl, 'fpn_pam_query'+slvl , dim_in, int(dim_out/8), 
+            kernel=1, pad=0, stride=1,
+            weight_init=gauss_fill(0.01), bias_init=const_fill(0.0)
+        )
+        proj_query = model.Reshape(
+            proj_query, ['fpn_pam_query_reshape'+slvl, 'pam_query_old_shape'+slvl ],
+            shape=[cfg.TRAIN.IMS_PER_BATCH, int(dim_out/8), -1]
+        )[0]
+
+        # key
+        proj_key = model.Conv(
+            'pam_in'+slvl, 'fpn_pam_key'+slvl, dim_in, int(dim_out/8), 
+            kernel=1, pad=0, stride=1,
+            weight_init=gauss_fill(0.01), bias_init=const_fill(0.0)
+        )
+        proj_key = model.Reshape(
+            proj_key, ['fpn_pam_key_reshape'+slvl, 'pam_key_old_shape'+slvl],
+            shape=[cfg.TRAIN.IMS_PER_BATCH, int(dim_out/8), -1]
+        )[0]
+
+        # attention
+        energy = model.BatchMatMul(
+            [proj_query, proj_key], 'fpn_pam_energy'+slvl, trans_a=1, trans_b=0
+        )
+        attention = model.Softmax(
+            energy, 'fpn_pam_attention'+slvl, axis=-1
+        )
+
+        # add attention
+        prj = model.Conv(
+            'pam_in'+slvl, 'fpn_pam_prj'+slvl, dim_in, dim_out,
+            kernel=1, pad=0, stride=1,
+            weight_init=gauss_fill(0.01), bias_init=const_fill(0.0)
+        )
+        prj_reshape = model.Reshape(
+            prj, ['fpn_pam_prj_reshape'+slvl, 'fpn_pam_prj_old_shape'+slvl],
+            shape=[cfg.TRAIN.IMS_PER_BATCH, dim_out, -1]
+        )[0]
+
+        pam = model.BatchMatMul(
+            [prj_reshape, attention], 'fpn_pam_out'+slvl, trans_a=0, trans_b=1
+        )
+        pam_reshape = model.Reshape(
+            [pam, 'fpn_pam_prj_old_shape'+slvl], ['fpn_pam_out_reshape'+slvl, 'fpn_pam_out_old_shape'+slvl]
+        )[0]
+        pam_out = model.Add(
+            ['pam_in'+slvl, pam_reshape], 'fpn_pam_out'+slvl, 
+        )
+
+        # # create params gamma
+        # from caffe2.python import core
+        # from caffe2.python.modeling import initializers
+        # from caffe2.python.modeling.parameter_info import ParameterTags
+        # WeightInitializer = initializers.update_initializer(
+        #         None, None, ("ConstantFill", {})
+        #     )
+        # pam_gamma = model.create_param(
+        #         param_name='fpn_pam_gamma'+slvl,
+        #         shape=[1,],
+        #         initializer=WeightInitializer,
+        #         tags=ParameterTags.WEIGHT
+        #     )
+        # inputs = ([pam_gamma,])
+        # inputs = core._RectifyInputOutput(inputs)
+        # for item in inputs:
+        #     if not model.net.BlobIsDefined(item):
+        #         assert item.Net() != model.net
+        #         model.net.AddExternalInput(item)
+
+        # pam_out = model.WeightedSum(
+        #     [pam_reshape, 'fpn_pam_gamma'+slvl], 'fpn_pam_out'+slvl, grad_on_w=True
+        # )
+        pam_outs += [pam_out]
+
+    # adjust to get output
+    # p2 convT --> bilinear_up_sampling
+    p2_pam_out_up1 = model.ConvTranspose(
+        pam_outs[0], 'p2_pam_out_up1', dim_out, dim_out,
+        kernel=2, pad=0, stride=2,
+        weight_init=(cfg.MRCNN.CONV_INIT, {'std': 0.001}),
+        bias_init=const_fill(0.0)
+    )
+    model.Relu(p2_pam_out_up1, p2_pam_out_up1)
+    p2_pam_out_up2 = model.BilinearInterpolation(
+        'p2_pam_out_up1', 'p2_pam_out_up2', dim_out, dim_out, 2
+    )
+
+    p3_pam_out_up1 = model.ConvTranspose(
+        pam_outs[1], 'p3_pam_out_up1', dim_out, dim_out,
+        kernel=2, pad=0, stride=2,
+        weight_init=(cfg.MRCNN.CONV_INIT, {'std': 0.001}),
+        bias_init=const_fill(0.0)
+    )
+    model.Relu(p2_pam_out_up2, p2_pam_out_up2)
+
+    p3_pam_out = model.Conv(
+        pam_outs[2], 'p3_pam_out', dim_in, dim_in,
+        kernel=3, pad=1, stride=1,
         weight_init=gauss_fill(0.01), bias_init=const_fill(0.0)
     )
-    proj_query = model.Reshape(
-        proj_query, ['fpn_pam_query_reshape', 'pam_query_old_shape' ],
-        shape=[cfg.TRAIN.IMS_PER_BATCH, int(dim_out/8), -1]
-    )[0]
-
-    proj_key = model.Conv(
-        pam_input, 'fpn_pam_key', dim_in, int(dim_out/8), 
-        kernel=1, pad=0, stride=1,
-        weight_init=gauss_fill(0.01), bias_init=const_fill(0.0)
-    )
-    # reshape from (B,C,W,H) -> (B,C,H*W)
-    proj_key = model.Reshape(
-        proj_key, ['fpn_pam_key_reshape', 'pam_key_old_shape'],
-        shape=[cfg.TRAIN.IMS_PER_BATCH, int(dim_out/8), -1]
-    )[0]
-
-    energy = model.BatchMatMul(
-        [proj_query, proj_key], 'fpn_pam_energy', trans_a=1, trans_b=0
-    )
-    attention = model.Softmax(
-        energy, 'fpn_pam_attention', axis=-1
-    )
-
-    # add attention on each fpn level
-    # p2
-    p2_prj = model.Conv(
-        p2_sub, 'p2_pam_prj', dim_in, dim_out,
-        kernel=1, pad=0, stride=1,
-        weight_init=gauss_fill(0.01), bias_init=const_fill(0.0)
-    )
-    p2_prj = model.Reshape(
-        p2_prj, ['p2_pam_prj_reshape', 'p2_pam_prj_old_shape'],
-        shape=[cfg.TRAIN.IMS_PER_BATCH, dim_out, -1]
-    )[0]
-    p2_pam = model.BatchMatMul(
-        [p2_prj, attention], 'p2_pam_out', trans_a=0, trans_b=1
-    )
-    # reshape as blobs_in
-    p2_pam = model.Reshape(
-        [p2_pam, 'p2_pam_prj_old_shape'], ['p2_pam_out_reshape', 'p2_pam_out_old_shape']
-    )[0]
-    p2_pam_norm = model.net.UpsampleNearest(p2_pam, 'p2_pam_normal', scale=2)
-    p2_out = model.Add(
-        [blobs_in[0], p2_pam_norm], 'p2_pam_out_finnal', 
-    )
-
-    #p3
-    p3_prj = model.Conv(
-        blobs_in[1], 'p3_pam_prj', dim_in, dim_out,
-        kernel=1, pad=0, stride=1,
-        weight_init=gauss_fill(0.01), bias_init=const_fill(0.0)
-    )
-    p3_prj = model.Reshape(
-        p3_prj, ['p3_pam_prj_reshape', 'p3_pam_prj_old_shape'],
-        shape=[cfg.TRAIN.IMS_PER_BATCH, dim_out, -1]
-    )[0]
-    p3_pam = model.BatchMatMul(
-        [p3_prj, attention], 'p3_pam_out', trans_a=0, trans_b=1
-    )
-    # reshape as blobs_in
-    p3_pam = model.Reshape(
-        [p3_pam, 'p3_pam_prj_old_shape'], ['p3_pam_out_reshape', 'p3_pam_out_old_shape']
-    )[0]
-    p3_out = model.Add(
-        [blobs_in[1], p3_pam], 'p3_pam_out_finnal'
-    )
-
-    # p4
-    p4_prj = model.Conv(
-        p4_up, 'p4_pam_prj', dim_in, dim_out,
-        kernel=1, pad=0, stride=1,
-        weight_init=gauss_fill(0.01), bias_init=const_fill(0.0)
-    )
-    p4_prj = model.Reshape(
-        p4_prj, ['p4_pam_prj_reshape', 'p4_pam_prj_old_shape'],
-        shape=[cfg.TRAIN.IMS_PER_BATCH, dim_out, -1]
-    )[0]
     
-    p4_pam = model.BatchMatMul(
-        [p4_prj, attention], 'p4_pam_out', trans_a=0, trans_b=1
-    )
-    # reshape as blobs_in
-    p4_pam = model.Reshape(
-        [p4_pam, 'p4_pam_prj_old_shape'], ['p4_pam_out_reshape', 'p4_pam_out_old_shape']
-    )[0]
-    p4_pam_pool = model.MaxPool(p4_pam, 'p4_pam_pool', kernel=3, pad=1, stride=2)
-    p4_out = model.Add(
-        [blobs_in[2], p4_pam_pool], 'p4_pam_out_finnal'
-    )
-    return [p2_out, p3_out, p4_out]
+    return [p2_pam_out_up2, p3_pam_out_up1, p3_pam_out]
 
-
-    
 
 
 
