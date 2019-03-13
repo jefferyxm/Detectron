@@ -106,12 +106,21 @@ def add_fpn_onto_conv_body(
         model, fpn_level_info_func()
     )
 
+    # add pam_fusion
+    # need to remove 3*3 conv in FPN,(do conv in pam module)
+    if 1:
+        # 1 corret blob
+        pam_blobs_in = blobs_fpn[::-1]
+        pam_blobs_out = add_PAM_fusion(model, pam_blobs_in, dim_fpn, dim_fpn)
+        pam_blobs = pam_blobs_out[::-1]
+
+
     if P2only:
         # use only the finest level
-        return blobs_fpn[-1], dim_fpn, spatial_scales_fpn[-1]
+        return pam_blobs[-1], dim_fpn, spatial_scales_fpn[-1]
     else:
         # use all levels
-        return blobs_fpn, dim_fpn, spatial_scales_fpn
+        return pam_blobs, dim_fpn, spatial_scales_fpn
 
 
 def add_fpn(model, fpn_level_info):
@@ -186,34 +195,8 @@ def add_fpn(model, fpn_level_info):
     # Post-hoc scale-specific 3x3 convs
     blobs_fpn = []
     spatial_scales = []
-    for i in range(num_backbone_stages):
-        if cfg.FPN.USE_GN:
-            # use GroupNorm
-            fpn_blob = model.ConvGN(
-                output_blobs[i],
-                'fpn_{}'.format(fpn_level_info.blobs[i]),
-                dim_in=fpn_dim,
-                dim_out=fpn_dim,
-                group_gn=get_group_gn(fpn_dim),
-                kernel=3,
-                pad=1,
-                stride=1,
-                weight_init=xavier_fill,
-                bias_init=const_fill(0.0)
-            )
-        else:
-            fpn_blob = model.Conv(
-                output_blobs[i],
-                'fpn_{}'.format(fpn_level_info.blobs[i]),
-                dim_in=fpn_dim,
-                dim_out=fpn_dim,
-                kernel=3,
-                pad=1,
-                stride=1,
-                weight_init=xavier_fill,
-                bias_init=const_fill(0.0)
-            )
-        blobs_fpn += [fpn_blob]
+    for i in range(num_backbone_stages): 
+        blobs_fpn += [output_blobs[i]]
         spatial_scales += [fpn_level_info.spatial_scales[i]]
 
     #
@@ -620,65 +603,16 @@ def add_fpn_rpn_attention(model, blobs_in, dim_in, spatial_scales):
                 ap_size=cfg.FPN.RPN_ANCHOR_START_SIZE * 2.**(lvl - k_min)
             )
 
-def add_PAM(model, blobs_in, dim_in, dim_out, slvl):
-    proj_query = model.Conv(
-        blobs_in, 'fpn_pam_query' + slvl, dim_in, int(dim_out/8), 
-        kernel=1, pad=0, stride=1,
-        weight_init=gauss_fill(0.01), bias_init=const_fill(0.0)
-    )
-    # reshape from (B,C,W,H) -> (B,C,H*W)
-    proj_query = model.Reshape(
-        proj_query, ['fpn_pam_query_reshape' + slvl, 'pam_query_old_shape'+slvl ],
-        shape=[cfg.TRAIN.IMS_PER_BATCH, int(dim_out/8), -1]
-    )[0]
-
-    proj_key = model.Conv(
-        blobs_in, 'fpn_pam_key' + slvl, dim_in, int(dim_out/8), 
-        kernel=1, pad=0, stride=1,
-        weight_init=gauss_fill(0.01), bias_init=const_fill(0.0)
-    )
-    # reshape from (B,C,W,H) -> (B,C,H*W)
-    proj_key = model.Reshape(
-        proj_key, ['fpn_pam_key_reshape' + slvl, 'pam_key_old_shape' + slvl ],
-        shape=[cfg.TRAIN.IMS_PER_BATCH, int(dim_out/8), -1]
-    )[0]
-
-    energy = model.BatchMatMul(
-        [proj_query, proj_key], 'fpn_pam_energy'+slvl, trans_a=1, trans_b=0
-    )
-    attention = model.Softmax(
-        energy, 'fpn_pam_attention'+slvl, axis=-1
-    )
-
-    proj_val = model.Conv(
-        blobs_in, 'fpn_pam_pval' + slvl, dim_in, dim_out,
-        kernel=1, pad=0, stride=1,
-        weight_init=gauss_fill(0.01), bias_init=const_fill(0.0)
-    )
-    proj_val = model.Reshape(
-        proj_val, ['fpn_pam_pval_reshape'+slvl, 'pam_pval_old_shape'+slvl],
-        shape=[cfg.TRAIN.IMS_PER_BATCH, dim_out, -1]
-    )[0]
-
-    pam_out = model.BatchMatMul(
-        [proj_val, attention], 'fpn_pam_out'+slvl, trans_a=0, trans_b=1
-    )
-    # reshape as blobs_in
-    pam_out = model.Reshape(
-        [pam_out, 'pam_pval_old_shape'+slvl], ['fpn_pam_out_reshape'+ slvl, 'pam_out_old_shape'+slvl]
-    )[0]
-    pam_out = model.Scale(
-        pam_out, 'fpn_pam_out_scale'+slvl, scale=1.0
-    )
-    pam_out = model.Add(
-        [blobs_in, pam_out], 'fpn_pam_out_finnal'+slvl, 
-    )
-    return pam_out
-
 
 
 
 def add_PAM_fusion(model, blobs_in, dim_in, dim_out):
+    '''
+    input
+        blobs_in: FPN [p2, p3, p4, p5] ordel
+    return
+        pam_blobs_out: [p2_pam_out_up2, p4_pam_out_up1, p4_pam_out, p5] order
+    '''
     # adjust pam input
     p2_sub = model.MaxPool(
         blobs_in[0], 'pam_p2_sub1', kernel=3, pad=1, stride=2
@@ -797,21 +731,23 @@ def add_PAM_fusion(model, blobs_in, dim_in, dim_out):
         'p2_pam_out_up1', 'p2_pam_out_up2', dim_out, dim_out, 2
     )
 
-    p3_pam_out_up1 = model.ConvTranspose(
-        pam_outs[1], 'p3_pam_out_up1', dim_out, dim_out,
+    # p3
+    p4_pam_out_up1 = model.ConvTranspose(
+        pam_outs[1], 'p4_pam_out_up1', dim_out, dim_out,
         kernel=2, pad=0, stride=2,
         weight_init=(cfg.MRCNN.CONV_INIT, {'std': 0.001}),
         bias_init=const_fill(0.0)
     )
     model.Relu(p2_pam_out_up2, p2_pam_out_up2)
 
-    p3_pam_out = model.Conv(
-        pam_outs[2], 'p3_pam_out', dim_in, dim_in,
+    # p4
+    p4_pam_out = model.Conv(
+        pam_outs[2], 'p4_pam_out', dim_in, dim_in,
         kernel=3, pad=1, stride=1,
         weight_init=gauss_fill(0.01), bias_init=const_fill(0.0)
     )
     
-    return [p2_pam_out_up2, p3_pam_out_up1, p3_pam_out]
+    return [p2_pam_out_up2, p4_pam_out_up1, p4_pam_out, blobs_in[3]]
 
 
 
