@@ -11,10 +11,10 @@ DATA_LOADER:
 SOLVER:
   WEIGHT_DECAY: 0.0001
   LR_POLICY: steps_with_decay
-  BASE_LR: 0.0015  
+  BASE_LR: 0.0002  
   GAMMA: 0.1
-  MAX_ITER: 400000
-  STEPS: [0, 270000, 360000]
+  MAX_ITER: 40000
+  STEPS: [0, 20000, 30000]
 RPN:
   FINEANCHOR: False
 FPN:
@@ -45,9 +45,9 @@ MRCNN:
   THRESH_BINARIZE: 0.5
 TRAIN:
   # WEIGHTS: https://s3-us-west-2.amazonaws.com/detectron/ImageNetPretrained/MSRA/R-50.pkl
-  WEIGHTS: data/R-50.pkl
-  DATASETS: ('icdar_2017_train', 'icdar_2017_val')
-  SCALES: (600, 700, 800, 900, 1000)
+  WEIGHTS: data/dan01005/train/model_final.pkl
+  DATASETS: ('icdar_2015_train', )
+  SCALES: (700, 800, 900)
   MAX_SIZE: 1600
   BATCH_SIZE_PER_IM: 128
   RPN_BATCH_SIZE_PER_IM: 128

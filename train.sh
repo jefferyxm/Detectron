@@ -2,7 +2,7 @@
 export CUDA_VISIBLE_DEVICES=1
 python2 tools/train_net.py \
     --cfg configs/icdar/e2e_mask_rcnn_R-50-FPN_1x.yaml \
-    OUTPUT_DIR data/dan01005
+    OUTPUT_DIR data/dan01006
 
 
 # ---------------ada_exp01------------------- 
@@ -83,3 +83,6 @@ python2 tools/train_net.py \
 
 # -----------dan01005--------
 # dan on PFN train on icdar 2017
+
+# ----------dan01006---------
+#  dan fintune on icdar 2015 based on dan01005
