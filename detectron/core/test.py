@@ -48,7 +48,7 @@ import detectron.utils.keypoints as keypoint_utils
 
 logger = logging.getLogger(__name__)
 
-
+cnt=0
 def im_detect_all(model, im, box_proposals, timers=None, entry=None):
     if timers is None:
         timers = defaultdict(Timer)
@@ -66,6 +66,24 @@ def im_detect_all(model, im, box_proposals, timers=None, entry=None):
             model, im, cfg.TEST.SCALE, cfg.TEST.MAX_SIZE, boxes=box_proposals
         )
     timers['im_detect_bbox'].toc()
+
+
+    global cnt
+    cnt  = cnt +  1
+    DBG=1
+    if DBG:
+        # import matplotlib.pyplot as plt
+        im_plt = im[:,:,(2,1,0)]
+        plt.cla()
+        plt.imshow(im_plt)
+        print(boxes.shape)
+
+        for i in range(boxes.shape[0]):
+            plt.gca().add_patch(plt.Rectangle((boxes[i][4], boxes[i][5] ), \
+                            boxes[i][6] - boxes[i][4], boxes[i][7] - boxes[i][5], \
+                            fill=False, edgecolor='r', linewidth=2))
+            
+        plt.saveifg('/home/xiem/paper/contrast02/'+ str(cnt) + '-2.jpg')
 
     # score and boxes are from the whole image after score thresholding and nms
     # (they are not separated by class)
@@ -167,8 +185,9 @@ def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None):
     scores = workspace.FetchBlob(core.ScopedName('cls_prob')).squeeze()
     # In case there is 1 proposal
     scores = scores.reshape([-1, scores.shape[-1]])
-
-    if cfg.TEST.BBOX_REG:
+    
+    if 0:
+    # if cfg.TEST.BBOX_REG:
         # Apply bounding-box regression deltas
         box_deltas = workspace.FetchBlob(core.ScopedName('bbox_pred')).squeeze()
         # In case there is 1 proposal
