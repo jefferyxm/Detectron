@@ -690,16 +690,16 @@ def add_fpn_rpn_losses(model):
             ],
             'loss_adarpn_bbox_fpn' + slvl,
             beta=1. / 9.,
-            scale=0.0,
+            scale=model.GetLossScale(),
         )
         loss_gradients.update(
             blob_utils.
-            get_loss_gradients(model, [loss_adarpn_cls_fpn, loss_adarpn_bbox_wh_fpn])
+            get_loss_gradients(model, [loss_adarpn_cls_fpn, loss_adarpn_bbox_wh_fpn, loss_adarpn_bbox_fpn])
             # loss_adarpn_bbox_fpn
         )
 
         model.AddMetrics(['fg_num_batch', 'bg_num_batch'])
-        model.AddLosses(['loss_adarpn_cls_fpn' + slvl, 'loss_adarpn_bbox_wh_fpn' + slvl])
+        model.AddLosses(['loss_adarpn_cls_fpn' + slvl, 'loss_adarpn_bbox_wh_fpn' + slvl, 'loss_adarpn_bbox_fpn' + slvl])
         # , 'loss_adarpn_bbox_fpn' + slvl
     return loss_gradients
 
