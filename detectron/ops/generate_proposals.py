@@ -171,12 +171,12 @@ class GenerateProposalsOp(object):
         scores = scores[order]
 
         # modified 4
-        # get score higher than 0.05
-        # order = np.where( (scores.squeeze()) >= 0.05 )[0]
-        # bbox_deltas = bbox_deltas[order, :]
-        # bbox_whs = bbox_whs[order, :]
-        # anchor_points = anchor_points[order, :]
-        # scores = scores[order]
+        get score higher than 0.05
+        order = np.where( (scores.squeeze()) >= 0.1 )[0]
+        bbox_deltas = bbox_deltas[order, :]
+        bbox_whs = bbox_whs[order, :]
+        anchor_points = anchor_points[order, :]
+        scores = scores[order]
 
         # Prevent sending too large values into np.exp()
         bbox_whs = np.minimum(bbox_whs, cfg.BBOX_XFORM_CLIP)

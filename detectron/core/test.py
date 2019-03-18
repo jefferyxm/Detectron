@@ -127,46 +127,21 @@ def im_detect_all(model, im, box_proposals, timers=None, entry=None):
         print(positv_cnt)
     
     global cnt
-    DBG=0
+    DBG=1
     cnt  = cnt +  1
-    if cnt>=104:
-        DBG = 0
     if DBG:
-        # adarpn_cls_logits_fpn2
-        # adarpn_cls_probs_fpn2
-
-        rois1 = workspace.FetchBlob(core.ScopedName('adarpn_cls_probs_fpn2'))
-        rois2 = workspace.FetchBlob(core.ScopedName('adarpn_cls_probs_fpn3'))
-        rois3 = workspace.FetchBlob(core.ScopedName('adarpn_cls_probs_fpn4'))
-
-        print(rois1.shape)
-        print(rois2.shape)
-        print(rois3.shape)
-
-        # show feature map of the RPN score output
-        import matplotlib.pyplot as plt
-        plt.subplot(2,3,1)
-        plt.imshow(rois1[0][0], cmap=plt.cm.hot)
-        plt.subplot(2,3,2)
-        plt.imshow(rois2[0][0], cmap=plt.cm.hot)
-        plt.subplot(2,3,3)
-        plt.imshow(rois3[0][0], cmap=plt.cm.hot)
-
-
         # import matplotlib.pyplot as plt
         im_plt = im[:,:,(2,1,0)]
-        # plt.cla()
-        plt.subplot(2,3,5)
+        plt.cla()
         plt.imshow(im_plt)
         print(boxes.shape)
 
         for i in range(boxes.shape[0]):
-            # plt.gca().add_patch(plt.Rectangle((boxes[i][4], boxes[i][5] ), \
-            #                 boxes[i][6] - boxes[i][4], boxes[i][7] - boxes[i][5], \
-            #                 fill=False, edgecolor='r', linewidth=1))
-            plt.gca().add_patch(plt.Circle((boxes[i][4], boxes[i][5]), 1, edgecolor='b', fill=True, linewidth=1))
-            plt.gca().add_patch(plt.Circle((boxes[i][6], boxes[i][7]), 1, edgecolor='r', fill=True, linewidth=1))
-        # plt.show()
+            plt.gca().add_patch(plt.Rectangle((boxes[i][4], boxes[i][5] ), \
+                            boxes[i][6] - boxes[i][4], boxes[i][7] - boxes[i][5], \
+                            fill=False, edgecolor='r', linewidth=2))
+            
+        plt.saveifg('/home/xiem/paper/contrast02/'+ str(cnt) + '-1.jpg')
         print('======')
 
 
@@ -178,6 +153,7 @@ def im_detect_all(model, im, box_proposals, timers=None, entry=None):
     scores, boxes, cls_boxes = box_results_with_nms_and_limit(scores, boxes)
     timers['misc_bbox'].toc()
 
+    DBG=0
     if DBG:
         plt.subplot(2,3,6)
         plt.imshow(im_plt)
@@ -185,12 +161,6 @@ def im_detect_all(model, im, box_proposals, timers=None, entry=None):
             plt.gca().add_patch(plt.Rectangle((boxes[i][0], boxes[i][1] ), \
                             boxes[i][2] - boxes[i][0], boxes[i][3] - boxes[i][1], \
                             fill=False, edgecolor='r', linewidth=1))
-
-        # # global cnt
-        # # cnt = cnt + 1
-        # # if(cnt >20):
-        # print(boxes.shape)
-        # print(cls_boxes)
 
         plt.show()
 
@@ -354,8 +324,8 @@ def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None):
 
     # -----------------------------------
 
-    # if 0:
-    if cfg.TEST.BBOX_REG:
+    if 0:
+    # if cfg.TEST.BBOX_REG:
         # Apply bounding-box regression deltas
         box_deltas = workspace.FetchBlob(core.ScopedName('bbox_pred')).squeeze()
         # In case there is 1 proposal
