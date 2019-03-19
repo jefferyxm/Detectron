@@ -2,7 +2,7 @@
 export CUDA_VISIBLE_DEVICES=0
 python2 tools/train_net.py \
     --cfg configs/icdar/e2e_mask_rcnn_R-50-FPN_1x.yaml \
-    OUTPUT_DIR data/exp02101
+    OUTPUT_DIR data/exp02102
 
 
 # ---------------ada_exp01------------------- 
@@ -75,3 +75,6 @@ python2 tools/train_net.py \
 
 # ------------exp02101-----------------------
 # modify some training config training on icdar 2017 based on exp02003
+
+# ------------exp02102--------------------
+# exp02102 fintune exp02101 based on exp02101
